@@ -2,6 +2,7 @@
 using UnityChess;
 using UnityEngine;
 using static UnityChess.SquareUtil;
+using Unity.Netcode;
 
 /// <summary>
 /// Represents a visual chess piece in the game. This component handles user interaction,
@@ -49,22 +50,33 @@ public class VisualPiece : MonoBehaviour {
 		boardCamera = Camera.main;
 	}
 
-	/// <summary>
-	/// Called when the user presses the mouse button over the piece.
-	/// Records the initial screen-space position of the piece.
-	/// </summary>
-	public void OnMouseDown() {
-		if (enabled) {
-			// Convert the world position of the piece to screen-space and store it.
-			piecePositionSS = boardCamera.WorldToScreenPoint(transform.position);
-		}
-	}
+    /// <summary>
+    /// Called when the user presses the mouse button over the piece.
+    /// Records the initial screen-space position of the piece.
+    /// </summary>
+    public void OnMouseDown()
+    {
+        if (!enabled) return;
 
-	/// <summary>
-	/// Called while the user drags the piece with the mouse.
-	/// Updates the piece's world position to follow the mouse cursor.
-	/// </summary>
-	private void OnMouseDrag() {
+        // Block input if it's not your turn
+        if (!IsOwnerTurn()) return;
+
+        piecePositionSS = boardCamera.WorldToScreenPoint(transform.position);
+    }
+
+    private bool IsOwnerTurn()
+    {
+        return TurnManager.Instance != null &&
+               TurnManager.Instance.IsClientTurn(NetworkManager.Singleton.LocalClientId);
+    }
+
+
+
+    /// <summary>
+    /// Called while the user drags the piece with the mouse.
+    /// Updates the piece's world position to follow the mouse cursor.
+    /// </summary>
+    private void OnMouseDrag() {
 		if (enabled) {
 			// Create a new screen-space position based on the current mouse position,
 			// preserving the original depth (z-coordinate).
@@ -109,8 +121,15 @@ public class VisualPiece : MonoBehaviour {
 				}
 			}
 
-			// Raise the VisualPieceMoved event with the initial square, the piece's transform, and the closest square transform.
-			VisualPieceMoved?.Invoke(CurrentSquare, thisTransform, closestSquareTransform);
-		}
-	}
+            // Raise the VisualPieceMoved event with the initial square, the piece's transform, and the closest square transform.
+            if (!IsOwnerTurn()) return;
+
+            MoveData move = new MoveData(CurrentSquare, StringToSquare(closestSquareTransform.name));
+            string json = JsonUtility.ToJson(move);
+
+            // Send to server
+            MoveHandler.Instance.SubmitMoveServerRpc(json);
+
+        }
+    }
 }

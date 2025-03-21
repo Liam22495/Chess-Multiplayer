@@ -109,7 +109,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 	/// </summary>
 	public void Start() {
 		// Subscribe to the event triggered when a visual piece is moved.
-		VisualPiece.VisualPieceMoved += OnPieceMoved;
+		//VisualPiece.VisualPieceMoved += OnPieceMoved;
 
 		// Initialise the serializers for FEN and PGN formats.
 		serializersByType = new Dictionary<GameSerializationType, IGameSerializer> {
@@ -338,4 +338,39 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 	public bool HasLegalMoves(Piece piece) {
 		return game.TryGetLegalMovesForPiece(piece, out _);
 	}
+
+    public Game GetGame()
+    {
+        return game;
+    }
+
+    public void ApplyNetworkMove(Movement move, string promotionPieceName)
+    {
+        if (move is PromotionMove promoMove && string.IsNullOrEmpty(promoMove.PromotionPiece?.GetType().Name))
+        {
+            Piece newPiece = PromotionUtil.GeneratePromotionPiece(
+                (ElectedPiece)System.Enum.Parse(typeof(ElectedPiece), promotionPieceName), SideToMove
+            );
+            promoMove.SetPromotionPiece(newPiece);
+        }
+
+        _ = TryHandleSpecialMoveBehaviourAsync(move as SpecialMove);
+        TryExecuteMove(move);
+    }
+
+    public void ApplyMoveVisualsOnly(MoveData move)
+    {
+        // Destroys captured piece and re-parents the moved piece visually only
+        Square start = new Square(move.from);
+        Square end = new Square(move.to);
+
+        BoardManager.Instance.TryDestroyVisualPiece(end);
+
+        Transform pieceTransform = BoardManager.Instance.GetPieceGOAtPosition(start).transform;
+        Transform targetSquareTransform = BoardManager.Instance.GetSquareGOByPosition(end).transform;
+
+        pieceTransform.position = targetSquareTransform.position;
+
+    }
+
 }

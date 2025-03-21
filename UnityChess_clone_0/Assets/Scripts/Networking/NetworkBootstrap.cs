@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Linq;
 using static System.Net.Mime.MediaTypeNames;
 
 public class NetworkBootstrap : MonoBehaviour
@@ -46,6 +47,18 @@ public class NetworkBootstrap : MonoBehaviour
     private void OnClientConnected(ulong clientId)
     {
         UnityEngine.Debug.Log($"Client connected: {clientId}");
+
+        // Only the host should assign players
+        if (NetworkManager.Singleton.IsHost && TurnManager.Instance != null)
+        {
+            var hostId = NetworkManager.Singleton.LocalClientId;
+            var clientIds = NetworkManager.Singleton.ConnectedClientsIds;
+            if (clientIds.Count >= 2)
+            {
+                var otherClient = clientIds.FirstOrDefault(id => id != hostId);
+                TurnManager.Instance.AssignPlayers(hostId, otherClient);
+            }
+        }
     }
 
     private void OnClientDisconnected(ulong clientId)

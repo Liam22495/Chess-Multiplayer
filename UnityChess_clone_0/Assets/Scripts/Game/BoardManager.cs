@@ -62,11 +62,24 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 		}
 	}
 
-	/// <summary>
-	/// Called when a new game is started.
-	/// Clears the board and places pieces according to the new game state.
-	/// </summary>
-	private void OnNewGameStarted() {
+    public void SyncInteractablePiecesForTurn(Side currentSide)
+    {
+        VisualPiece[] pieces = GetComponentsInChildren<VisualPiece>(true);
+        foreach (var piece in pieces)
+        {
+            Piece boardPiece = GameManager.Instance.CurrentBoard[piece.CurrentSquare];
+            piece.enabled = boardPiece != null &&
+                            piece.PieceColor == currentSide &&
+                            GameManager.Instance.HasLegalMoves(boardPiece);
+        }
+    }
+
+
+    /// <summary>
+    /// Called when a new game is started.
+    /// Clears the board and places pieces according to the new game state.
+    /// </summary>
+    private void OnNewGameStarted() {
 		// Remove all existing visual pieces.
 		ClearBoard();
 		
