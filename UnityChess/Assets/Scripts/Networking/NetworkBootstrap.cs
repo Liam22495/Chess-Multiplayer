@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using static System.Net.Mime.MediaTypeNames;
 
 public class NetworkBootstrap : MonoBehaviour
 {
@@ -10,8 +12,45 @@ public class NetworkBootstrap : MonoBehaviour
 
     private void Start()
     {
-        hostButton.onClick.AddListener(() => NetworkManager.Singleton.StartHost());
-        clientButton.onClick.AddListener(() => NetworkManager.Singleton.StartClient());
-        serverButton.onClick.AddListener(() => NetworkManager.Singleton.StartServer());
+        hostButton.onClick.AddListener(StartHost);
+        clientButton.onClick.AddListener(StartClient);
+        serverButton.onClick.AddListener(StartServer);
+
+        // Subscribe to connection events
+        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
+
+    private void StartHost()
+    {
+        NetworkManager.Singleton.StartHost();
+        UnityEngine.Debug.Log("Hosting...");
+    }
+
+    private void StartClient()
+    {
+        if (!NetworkManager.Singleton.StartClient())
+            UnityEngine.Debug.LogWarning("Failed to connect as client.");
+        else
+            UnityEngine.Debug.Log("Connecting as client...");
+    }
+
+
+    private void StartServer()
+    {
+        NetworkManager.Singleton.StartServer();
+        UnityEngine.Debug.Log("Server started.");
+    }
+
+
+    private void OnClientConnected(ulong clientId)
+    {
+        UnityEngine.Debug.Log($"Client connected: {clientId}");
+    }
+
+    private void OnClientDisconnected(ulong clientId)
+    {
+        UnityEngine.Debug.LogWarning($"Client disconnected: {clientId}");
+    }
+
 }
