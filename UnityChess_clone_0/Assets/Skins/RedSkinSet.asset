@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 971a0ec7da217354790d874a78b27192, type: 3}
   m_Name: RedSkinSet
   m_EditorClassIdentifier: 
-  skinName: 
-  boardMaterial: {fileID: 0}
-  whitePieceMaterial: {fileID: 0}
-  blackPieceMaterial: {fileID: 0}
+  skinId: RedSkinSet
+  skinName: RedSkinSet
+  boardMaterial: {fileID: 2100000, guid: 8822401e90d23284da01fce13d608582, type: 2}
+  whitePieceMaterial: {fileID: 2100000, guid: 8822401e90d23284da01fce13d608582, type: 2}
+  blackPieceMaterial: {fileID: 2100000, guid: 8822401e90d23284da01fce13d608582, type: 2}

@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using TMPro;
+
 public class DLCStoreUI : MonoBehaviour
 {
     [Header("DLC Settings")]
@@ -9,19 +11,35 @@ public class DLCStoreUI : MonoBehaviour
     [Header("UI References")]
     public Transform storePanel;
     public GameObject skinButtonPrefab;
+    public static DLCStoreUI Instance;
+
 
     private void Start()
     {
-        foreach (var skin in availableSkins)
+        DLCManager.Instance.LoadUnlockedSkins((unlockedSkins, selectedSkin) =>
         {
-            GameObject buttonObj = Instantiate(skinButtonPrefab, storePanel);
-            buttonObj.GetComponentInChildren<UnityEngine.UI.Text>().text = skin.skinName;
+            foreach (var skin in availableSkins)
+            {
+                GameObject buttonObj = Instantiate(skinButtonPrefab, storePanel);
+                SkinButtonUI buttonUI = buttonObj.GetComponent<SkinButtonUI>();
 
+                bool isUnlocked = unlockedSkins.Contains(skin.skinId);
+                buttonUI.Init(skin, isUnlocked);
 
-            Button btn = buttonObj.GetComponent<Button>();
-            btn.onClick.AddListener(() => OnSkinClicked(skin));
-        }
+                if (skin.skinId == selectedSkin)
+                {
+                    ApplySkin(skin);
+                }
+            }
+        });
     }
+
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
 
     private void OnSkinClicked(SkinDataSO skin)
     {
@@ -30,7 +48,6 @@ public class DLCStoreUI : MonoBehaviour
     }
 
     public void ApplySkin(SkinDataSO skin)
-
     {
         BoardManager.Instance.SetBoardMaterial(skin.boardMaterial);
         BoardManager.Instance.SetPieceMaterials(skin.whitePieceMaterial, skin.blackPieceMaterial);
