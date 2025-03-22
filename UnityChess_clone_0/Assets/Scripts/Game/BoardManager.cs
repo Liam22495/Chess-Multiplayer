@@ -21,6 +21,9 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 	// The vertical offset for placing the board (height above the base).
 	private const float BoardHeight = 1.6f;
 
+
+
+
 	/// <summary>
 	/// Awake is called when the script instance is being loaded.
 	/// Sets up the board, subscribes to game events, and creates the square GameObjects.
@@ -62,6 +65,22 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 			}
 		}
 	}
+
+    public Renderer boardRenderer;
+    public void SetBoardMaterial(Material mat)
+    {
+        boardRenderer.material = mat;
+    }
+
+    public void SetPieceMaterials(Material whiteMat, Material blackMat)
+    {
+        foreach (VisualPiece piece in GetComponentsInChildren<VisualPiece>())
+        {
+            Material mat = piece.PieceColor == UnityChess.Side.White ? whiteMat : blackMat;
+            piece.GetComponent<Renderer>().material = mat;
+        }
+    }
+
 
     public void SyncInteractablePiecesForTurn(Side currentSide)
     {
