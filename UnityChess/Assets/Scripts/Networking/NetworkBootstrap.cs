@@ -48,18 +48,32 @@ public class NetworkBootstrap : MonoBehaviour
     {
         UnityEngine.Debug.Log($"Client connected: {clientId}");
 
-        // Only the host should assign players
+        //Assign players (host = white, client = black)
         if (NetworkManager.Singleton.IsHost && TurnManager.Instance != null)
         {
             var hostId = NetworkManager.Singleton.LocalClientId;
             var clientIds = NetworkManager.Singleton.ConnectedClientsIds;
+
             if (clientIds.Count >= 2)
             {
                 var otherClient = clientIds.FirstOrDefault(id => id != hostId);
                 TurnManager.Instance.AssignPlayers(hostId, otherClient);
             }
+
+            //Send current game state to newly joined client
+            if (clientId != hostId)
+            {
+                string currentGame = GameManager.Instance.SerializeGame();
+                string side = GameManager.Instance.SideToMove.ToString();
+
+                GameStateSync.Instance.SendGameStateToClientClientRpc(currentGame, side, new ClientRpcParams
+                {
+                    Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
+                });
+            }
         }
     }
+
 
     private void OnClientDisconnected(ulong clientId)
     {

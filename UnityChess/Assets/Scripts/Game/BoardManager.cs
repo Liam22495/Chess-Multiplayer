@@ -246,11 +246,11 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 		// Interpolate between the negative and positive half-length of the board side.
 		return Mathf.Lerp(-BoardPlaneSideHalfLength, BoardPlaneSideHalfLength, t);
 	}
-	
-	/// <summary>
-	/// Clears all visual pieces from the board.
-	/// </summary>
-	private void ClearBoard() {
+
+    /// <summary>
+    /// Clears all visual pieces from the board.
+    /// </summary>
+    public void ClearBoard() {
 		// Retrieve all VisualPiece components in child objects.
 		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
 		// Destroy each VisualPiece GameObject immediately.

@@ -1,18 +1,34 @@
-using System.Collections;
-using System.Collections.Generic;
+using Unity.Netcode;
+using UnityChess;
 using UnityEngine;
 
-public class GameStateSync : MonoBehaviour
+public class GameStateSync : NetworkBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
+    public static GameStateSync Instance;
+
+    private void Awake()
     {
-        
+        if (Instance == null)
+            Instance = this;
     }
 
-    // Update is called once per frame
-    void Update()
+    [ClientRpc]
+    public void SendGameStateToClientClientRpc(string serializedGame, string sideToMove, ClientRpcParams clientRpcParams = default)
     {
-        
+        UnityEngine.Debug.Log($"[GameStateSync] Received game state. SideToMove: {sideToMove}");
+
+        GameManager.Instance.LoadGame(serializedGame);
+        GameManager.Instance.ForceSetSideToMove(sideToMove);
+
+        // Force-refresh visuals
+        BoardManager.Instance.ClearBoard();
+
+        foreach ((Square square, Piece piece) in GameManager.Instance.CurrentPieces)
+        {
+            BoardManager.Instance.CreateAndPlacePieceGO(piece, square);
+        }
+
+        BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(GameManager.Instance.SideToMove);
+        UIManager.Instance.ValidateIndicators();
     }
 }
