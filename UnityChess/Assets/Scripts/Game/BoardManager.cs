@@ -211,26 +211,24 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
     }
 
 
-
-
     /// <summary>
     /// Destroys the visual representation of a piece at the specified square.
     /// </summary>
     /// <param name="position">The board square from which to destroy the piece.</param>
-    public void TryDestroyVisualPiece(Square position) {
-		// Find the VisualPiece component within the square's GameObject.
-		VisualPiece visualPiece = positionMap[position].GetComponentInChildren<VisualPiece>();
-		// If a VisualPiece is found, destroy its GameObject immediately.
-		if (visualPiece != null)
-			DestroyImmediate(visualPiece.gameObject);
-	}
-	
-	/// <summary>
-	/// Retrieves the GameObject representing the piece at the given board square.
-	/// </summary>
-	/// <param name="position">The board square to check.</param>
-	/// <returns>The piece GameObject if one exists; otherwise, null.</returns>
-	public GameObject GetPieceGOAtPosition(Square position) {
+    public void TryDestroyVisualPiece(Square square)
+    {
+        GameObject pieceGO = GetPieceGOAtPosition(square);
+        if (pieceGO == null) return;
+
+        UnityEngine.Object.Destroy(pieceGO);
+    }
+
+    /// <summary>
+    /// Retrieves the GameObject representing the piece at the given board square.
+    /// </summary>
+    /// <param name="position">The board square to check.</param>
+    /// <returns>The piece GameObject if one exists; otherwise, null.</returns>
+    public GameObject GetPieceGOAtPosition(Square position) {
 		// Get the square GameObject corresponding to the position.
 		GameObject square = GetSquareGOByPosition(position);
 		// Return the first child GameObject (which represents the piece) if it exists.

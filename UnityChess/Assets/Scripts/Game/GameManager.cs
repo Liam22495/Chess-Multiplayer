@@ -293,21 +293,28 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 		// Determine the destination square based on the name of the closest board square transform.
 		Square endSquare = new Square(closestBoardSquareTransform.name);
 
-		// Attempt to retrieve a legal move from the game logic.
-		if (!game.TryGetLegalMove(movedPieceInitialSquare, endSquare, out Movement move)) {
-			// If no legal move is found, reset the piece's position.
-			movedPieceTransform.position = movedPieceTransform.parent.position;
-#if DEBUG_VIEW
-			// In debug view, log the legal moves for further analysis.
-			Piece movedPiece = CurrentBoard[movedPieceInitialSquare];
-			game.TryGetLegalMovesForPiece(movedPiece, out ICollection<Movement> legalMoves);
-			UnityChessDebug.ShowLegalMovesInLog(legalMoves);
-#endif
-			return;
-		}
+        // Attempt to retrieve a legal move from the game logic.
+        if (!game.TryGetLegalMove(movedPieceInitialSquare, endSquare, out Movement move))
+        {
+            UnityEngine.Debug.LogWarning($"[OnPieceMoved] No legal move from {movedPieceInitialSquare} to {endSquare}");
 
-		// If the move is a promotion move, set the promotion piece.
-		if (move is PromotionMove promotionMove) {
+            // Optional: print all legal moves for this piece
+            if (CurrentBoard[movedPieceInitialSquare] != null)
+            {
+                game.TryGetLegalMovesForPiece(CurrentBoard[movedPieceInitialSquare], out var legalMoves);
+                foreach (var m in legalMoves)
+                {
+                    UnityEngine.Debug.Log($"[LegalMove] {m.Start} → {m.End}");
+                }
+            }
+
+            movedPieceTransform.position = movedPieceTransform.parent.position;
+            return;
+        }
+
+
+        // If the move is a promotion move, set the promotion piece.
+        if (move is PromotionMove promotionMove) {
 			promotionMove.SetPromotionPiece(promotionPiece);
 		}
 
@@ -394,18 +401,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 
     public void ApplyMoveVisualsOnly(MoveData move)
     {
-        // Destroys captured piece and re-parents the moved piece visually only
         Square start = new Square(move.from);
         Square end = new Square(move.to);
 
+        // Destroy captured piece's GameObject (if any) at the target square
         BoardManager.Instance.TryDestroyVisualPiece(end);
 
+        // Move the piece's visual GameObject
         Transform pieceTransform = BoardManager.Instance.GetPieceGOAtPosition(start).transform;
         Transform targetSquareTransform = BoardManager.Instance.GetSquareGOByPosition(end).transform;
 
         pieceTransform.parent = targetSquareTransform;
         pieceTransform.position = targetSquareTransform.position;
-
     }
+
 
 }

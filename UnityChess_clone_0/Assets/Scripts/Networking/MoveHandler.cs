@@ -34,6 +34,7 @@ public class MoveHandler : NetworkBehaviour
             UnityEngine.Debug.LogWarning($"[MoveHandler] REJECTED: No legal move from {from} to {to}. Turn: {TurnManager.Instance.IsClientTurn(senderClientId)} SideToMove: {GameManager.Instance.SideToMove}");
 
             UnityEngine.Debug.LogWarning($"[MoveHandler] Invalid move from {move.from} to {move.to} by client {senderClientId}");
+            RejectMoveClientRpc(move.from);
             return;
         }
 
@@ -46,6 +47,18 @@ public class MoveHandler : NetworkBehaviour
         // Switch turn
         TurnManager.Instance.SwitchTurn();
     }
+
+    [ClientRpc]
+    private void RejectMoveClientRpc(string fromSquare)
+    {
+        Square from = new Square(fromSquare);
+        GameObject pieceGO = BoardManager.Instance.GetPieceGOAtPosition(from);
+        if (pieceGO != null)
+        {
+            pieceGO.transform.position = pieceGO.transform.parent.position;
+        }
+    }
+
 
     [ClientRpc]
     private void BroadcastMoveToClientsClientRpc(string moveJson)
