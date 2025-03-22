@@ -13,6 +13,8 @@ public class TurnManager : NetworkBehaviour
 
     private ulong currentTurnClientId;
     private Side currentTurnSide;
+    public string syncedSideToMove;
+
 
     private void Awake()
     {
@@ -56,11 +58,18 @@ public class TurnManager : NetworkBehaviour
         string json = JsonUtility.ToJson(new TurnInfo
         {
             turnOwnerClientId = currentTurnClientId,
-            side = currentTurnSide.ToString()
+            side = currentTurnSide.ToString(),
+            syncedSideToMove = GameManager.Instance.SideToMove.ToString()
         });
 
         SendTurnJsonToClientsClientRpc(json);
     }
+
+    public bool SideToMoveIsWhite()
+    {
+        return currentTurnSide == Side.White;
+    }
+
 
     [ClientRpc]
     private void SendTurnJsonToClientsClientRpc(string json)
@@ -68,15 +77,40 @@ public class TurnManager : NetworkBehaviour
         UnityEngine.Debug.Log($"[TurnManager] JSON Turn Update: {json}");
 
         TurnInfo receivedTurn = JsonUtility.FromJson<TurnInfo>(json);
+
+        // Update local turn tracking
         currentTurnClientId = receivedTurn.turnOwnerClientId;
         currentTurnSide = receivedTurn.side == "White" ? Side.White : Side.Black;
-        BoardManager.Instance.SyncInteractablePiecesForTurn(currentTurnSide);
+
+        // Sync actual turn state in GameManager
+        GameManager.Instance.ForceSetSideToMove(receivedTurn.syncedSideToMove);
+
+        // Update UI
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.ValidateIndicators();
+        }
+
+        // Enable all VisualPieces — forcefully — AFTER everything else
+        VisualPiece[] allPieces = GameObject.FindObjectsOfType<VisualPiece>(true);
+        foreach (var piece in allPieces)
+        {
+            piece.enabled = true;
+            UnityEngine.Debug.Log($"[TurnManager] Final force-enable {piece.PieceColor} {piece.name}");
+        }
+
+        //Now apply correct piece restrictions for the turn
+        BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(GameManager.Instance.SideToMove);
     }
+
+
+
 
     [System.Serializable]
     public class TurnInfo
     {
         public ulong turnOwnerClientId;
         public string side;
+        public string syncedSideToMove;
     }
 }

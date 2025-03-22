@@ -358,6 +358,40 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
         TryExecuteMove(move);
     }
 
+    public void ForceSetSideToMove(string sideString)
+    {
+        Side side = sideString == "White" ? Side.White : Side.Black;
+
+        if (!game.ConditionsTimeline.TryGetCurrent(out GameConditions currentConditions))
+        {
+            UnityEngine.Debug.LogWarning("Client tried to force set SideToMove, but ConditionsTimeline was empty.");
+            return;
+        }
+
+        GameConditions newConditions = new GameConditions(
+            side,
+            currentConditions.WhiteCanCastleKingside,
+            currentConditions.WhiteCanCastleQueenside,
+            currentConditions.BlackCanCastleKingside,
+            currentConditions.BlackCanCastleQueenside,
+            currentConditions.EnPassantSquare,
+            currentConditions.HalfMoveClock,
+            currentConditions.TurnNumber
+        );
+
+        int turnIndex = currentConditions.TurnNumber;
+
+        if (game.ConditionsTimeline.Count > turnIndex)
+        {
+            game.ConditionsTimeline[turnIndex] = newConditions;
+        }
+        else
+        {
+            game.ConditionsTimeline.AddNext(newConditions);
+        }
+    }
+
+
     public void ApplyMoveVisualsOnly(MoveData move)
     {
         // Destroys captured piece and re-parents the moved piece visually only
@@ -369,6 +403,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
         Transform pieceTransform = BoardManager.Instance.GetPieceGOAtPosition(start).transform;
         Transform targetSquareTransform = BoardManager.Instance.GetSquareGOByPosition(end).transform;
 
+        pieceTransform.parent = targetSquareTransform;
         pieceTransform.position = targetSquareTransform.position;
 
     }

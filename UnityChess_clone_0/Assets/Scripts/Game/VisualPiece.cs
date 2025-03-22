@@ -42,13 +42,20 @@ public class VisualPiece : MonoBehaviour {
 	/// Initialises the visual piece. Sets up necessary variables and obtains a reference to the main camera.
 	/// </summary>
 	private void Start() {
-		// Initialise the list to hold potential landing squares.
-		potentialLandingSquares = new List<GameObject>();
+        UnityEngine.Debug.Log($"[VisualPiece] {name} Start() called — enabled = {enabled}");
+        // Initialise the list to hold potential landing squares.
+        potentialLandingSquares = new List<GameObject>();
 		// Cache the transform of this GameObject for efficiency.
 		thisTransform = transform;
 		// Obtain the main camera from the scene.
 		boardCamera = Camera.main;
 	}
+
+    private void OnEnable()
+    {
+        UnityEngine.Debug.Log($"[VisualPiece] {name} OnEnable called");
+    }
+
 
     /// <summary>
     /// Called when the user presses the mouse button over the piece.
@@ -58,18 +65,34 @@ public class VisualPiece : MonoBehaviour {
     {
         if (!enabled) return;
 
-        // Block input if it's not your turn
-        if (!IsOwnerTurn()) return;
+        //Prevent interacting with opponent's pieces
+        if (!IsOwnerTurn() || !CanPlayerControlThisPiece())
+        {
+            UnityEngine.Debug.LogWarning($"[VisualPiece] Blocked OnMouseDown for {name}");
+            return;
+        }
 
         piecePositionSS = boardCamera.WorldToScreenPoint(transform.position);
     }
 
-    private bool IsOwnerTurn()
+    private bool CanPlayerControlThisPiece()
     {
+        // Only allow this client to control their own side’s pieces
         return TurnManager.Instance != null &&
-               TurnManager.Instance.IsClientTurn(NetworkManager.Singleton.LocalClientId);
+               ((TurnManager.Instance.SideToMoveIsWhite() && PieceColor == Side.White) ||
+                (!TurnManager.Instance.SideToMoveIsWhite() && PieceColor == Side.Black));
     }
 
+
+    private bool IsOwnerTurn()
+    {
+        bool isTurn = TurnManager.Instance != null &&
+                      TurnManager.Instance.IsClientTurn(NetworkManager.Singleton.LocalClientId);
+
+        UnityEngine.Debug.Log($"[VisualPiece] IsOwnerTurn? {isTurn} | ClientId: {NetworkManager.Singleton.LocalClientId}");
+
+        return isTurn;
+    }
 
 
     /// <summary>
@@ -86,50 +109,55 @@ public class VisualPiece : MonoBehaviour {
 		}
 	}
 
-	/// <summary>
-	/// Called when the user releases the mouse button after dragging the piece.
-	/// Determines the closest board square to the piece and raises an event with the move.
-	/// </summary>
-	public void OnMouseUp() {
-		if (enabled) {
-			// Clear any previous potential landing square candidates.
-			potentialLandingSquares.Clear();
-			// Obtain all square GameObjects within the collision radius of the piece's current position.
-			BoardManager.Instance.GetSquareGOsWithinRadius(potentialLandingSquares, thisTransform.position, SquareCollisionRadius);
+    /// <summary>
+    /// Called when the user releases the mouse button after dragging the piece.
+    /// Determines the closest board square to the piece and raises an event with the move.
+    /// </summary>
+    public void OnMouseUp()
+    {
+        if (!enabled) return;
 
-			// If no squares are found, assume the piece was moved off the board and reset its position.
-			if (potentialLandingSquares.Count == 0) { // piece moved off board
-				thisTransform.position = thisTransform.parent.position;
-				return;
-			}
-	
-			// Determine the closest square from the list of potential landing squares.
-			Transform closestSquareTransform = potentialLandingSquares[0].transform;
-			// Calculate the square of the distance between the piece and the first candidate square.
-			float shortestDistanceFromPieceSquared = (closestSquareTransform.position - thisTransform.position).sqrMagnitude;
-			
-			// Iterate through remaining potential squares to find the closest one.
-			for (int i = 1; i < potentialLandingSquares.Count; i++) {
-				GameObject potentialLandingSquare = potentialLandingSquares[i];
-				// Calculate the squared distance from the piece to the candidate square.
-				float distanceFromPieceSquared = (potentialLandingSquare.transform.position - thisTransform.position).sqrMagnitude;
+        // Clear previous square detection
+        potentialLandingSquares.Clear();
 
-				// If the current candidate is closer than the previous closest, update the closest square.
-				if (distanceFromPieceSquared < shortestDistanceFromPieceSquared) {
-					shortestDistanceFromPieceSquared = distanceFromPieceSquared;
-					closestSquareTransform = potentialLandingSquare.transform;
-				}
-			}
+        // Detect nearby board squares
+        BoardManager.Instance.GetSquareGOsWithinRadius(potentialLandingSquares, thisTransform.position, SquareCollisionRadius);
 
-            // Raise the VisualPieceMoved event with the initial square, the piece's transform, and the closest square transform.
-            if (!IsOwnerTurn()) return;
-
-            MoveData move = new MoveData(CurrentSquare, StringToSquare(closestSquareTransform.name));
-            string json = JsonUtility.ToJson(move);
-
-            // Send to server
-            MoveHandler.Instance.SubmitMoveServerRpc(json);
-
+        // If moved off the board, snap back
+        if (potentialLandingSquares.Count == 0)
+        {
+            thisTransform.position = thisTransform.parent.position;
+            return;
         }
+
+        // Find the closest valid square
+        Transform closestSquareTransform = potentialLandingSquares[0].transform;
+        float shortestDistanceSquared = (closestSquareTransform.position - thisTransform.position).sqrMagnitude;
+
+        for (int i = 1; i < potentialLandingSquares.Count; i++)
+        {
+            Transform sqTransform = potentialLandingSquares[i].transform;
+            float distanceSquared = (sqTransform.position - thisTransform.position).sqrMagnitude;
+
+            if (distanceSquared < shortestDistanceSquared)
+            {
+                closestSquareTransform = sqTransform;
+                shortestDistanceSquared = distanceSquared;
+            }
+        }
+
+        // ✅ If it's not your turn, snap back and exit
+        if (!IsOwnerTurn())
+        {
+            thisTransform.position = thisTransform.parent.position;
+            return;
+        }
+
+        // ✅ Create move and send to server
+        MoveData move = new MoveData(CurrentSquare, StringToSquare(closestSquareTransform.name));
+        string json = JsonUtility.ToJson(move);
+
+        MoveHandler.Instance.SubmitMoveServerRpc(json);
     }
+
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityChess;
 using UnityEngine;
+using Unity.Netcode;
 using static UnityChess.SquareUtil;
 
 /// <summary>
@@ -174,28 +175,49 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 			pieceBehaviour.enabled = active;
 	}
 
-	/// <summary>
-	/// Enables only the pieces belonging to the specified side that also have legal moves.
-	/// </summary>
-	/// <param name="side">The side (White or Black) to enable.</param>
-	public void EnsureOnlyPiecesOfSideAreEnabled(Side side) {
-		// Retrieve all VisualPiece components in child objects.
-		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
-		// Loop over each VisualPiece.
-		foreach (VisualPiece pieceBehaviour in visualPiece) {
-			// Get the corresponding chess piece from the board.
-			Piece piece = GameManager.Instance.CurrentBoard[pieceBehaviour.CurrentSquare];
-			// Enable the piece only if it belongs to the specified side and has legal moves.
-			pieceBehaviour.enabled = pieceBehaviour.PieceColor == side
-			                         && GameManager.Instance.HasLegalMoves(piece);
-		}
-	}
+    /// <summary>
+    /// Enables only the pieces belonging to the specified side that also have legal moves.
+    /// </summary>
+    /// <param name="side">The side (White or Black) to enable.</param>
+    public void EnsureOnlyPiecesOfSideAreEnabled(Side side)
+    {
+        VisualPiece[] visualPieces = GetComponentsInChildren<VisualPiece>(true);
 
-	/// <summary>
-	/// Destroys the visual representation of a piece at the specified square.
-	/// </summary>
-	/// <param name="position">The board square from which to destroy the piece.</param>
-	public void TryDestroyVisualPiece(Square position) {
+        foreach (VisualPiece pieceBehaviour in visualPieces)
+        {
+            Piece piece = GameManager.Instance.CurrentBoard[pieceBehaviour.CurrentSquare];
+
+            if (piece == null)
+            {
+                UnityEngine.Debug.LogWarning($"[BoardManager] Skipping {pieceBehaviour.name}, no board piece found.");
+                continue;
+            }
+
+            bool shouldEnable;
+
+            if (NetworkManager.Singleton.IsHost)
+            {
+                shouldEnable = pieceBehaviour.PieceColor == side &&
+                               GameManager.Instance.HasLegalMoves(piece);
+            }
+            else
+            {
+                shouldEnable = pieceBehaviour.PieceColor == side;
+            }
+
+            pieceBehaviour.enabled = shouldEnable;
+            UnityEngine.Debug.Log($"[BoardManager] {pieceBehaviour.PieceColor} {pieceBehaviour.name} enabled = {shouldEnable}");
+        }
+    }
+
+
+
+
+    /// <summary>
+    /// Destroys the visual representation of a piece at the specified square.
+    /// </summary>
+    /// <param name="position">The board square from which to destroy the piece.</param>
+    public void TryDestroyVisualPiece(Square position) {
 		// Find the VisualPiece component within the square's GameObject.
 		VisualPiece visualPiece = positionMap[position].GetComponentInChildren<VisualPiece>();
 		// If a VisualPiece is found, destroy its GameObject immediately.
