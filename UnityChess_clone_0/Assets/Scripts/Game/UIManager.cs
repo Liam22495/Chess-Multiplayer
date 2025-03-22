@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityChess;
 using UnityEngine;
 using UnityEngine.UI;
@@ -67,11 +68,17 @@ public class UIManager : MonoBehaviourSingleton<UIManager> {
 		);
 	}
 
-	/// <summary>
-	/// Handles the event when a new game starts.
-	/// Clears previous move history, updates UI fields, and resets result text.
-	/// </summary>
-	private void OnNewGameStarted() {
+    public void ShowGameEndMessage(string message)
+    {
+        UnityEngine.Debug.Log($"[UIManager] Game ended: {message}");
+    }
+
+
+    /// <summary>
+    /// Handles the event when a new game starts.
+    /// Clears previous move history, updates UI fields, and resets result text.
+    /// </summary>
+    private void OnNewGameStarted() {
 		// Update the serialized game string input field.
 		UpdateGameStringInputField();
 		// Validate turn indicator images.

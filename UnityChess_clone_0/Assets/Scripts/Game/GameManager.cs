@@ -169,41 +169,51 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 		GameResetToHalfMoveEvent?.Invoke();
 	}
 
-	/// <summary>
-	/// Attempts to execute a given move in the game.
-	/// </summary>
-	/// <param name="move">The move to execute.</param>
-	/// <returns>True if the move was successfully executed; otherwise, false.</returns>
-	private bool TryExecuteMove(Movement move) {
-		// Attempt to execute the move within the game logic.
-		if (!game.TryExecuteMove(move)) {
-			return false;
-		}
+    /// <summary>
+    /// Attempts to execute a given move in the game.
+    /// </summary>
+    /// <param name="move">The move to execute.</param>
+    /// <returns>True if the move was successfully executed; otherwise, false.</returns>
+    private bool TryExecuteMove(Movement move)
+    {
+        // Attempt to execute the move within the game logic.
+        if (!game.TryExecuteMove(move))
+        {
+            return false;
+        }
 
-		// Retrieve the latest half-move from the timeline.
-		HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove);
-		
-		// If the latest move resulted in checkmate or stalemate, disable further moves.
-		if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate) {
-			BoardManager.Instance.SetActiveAllPieces(false);
-			GameEndedEvent?.Invoke();
-		} else {
-			// Otherwise, ensure that only the pieces of the side to move are enabled.
-			BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
-		}
+        // Retrieve the latest half-move from the timeline.
+        HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove);
 
-		// Signal that a move has been executed.
-		MoveExecutedEvent?.Invoke();
+        // Check for checkmate or stalemate
+        if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
+        {
+            // Disable all input
+            BoardManager.Instance.SetActiveAllPieces(false);
+            GameEndedEvent?.Invoke();
 
-		return true;
-	}
-	
-	/// <summary>
-	/// Handles special move behaviour asynchronously (castling, en passant, and promotion).
-	/// </summary>
-	/// <param name="specialMove">The special move to process.</param>
-	/// <returns>A task that resolves to true if the special move was handled; otherwise, false.</returns>
-	private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove) {
+            string winner = SideToMove == Side.White ? "Black" : "White"; // Switch after move
+
+            GameEndHandler.Instance.BroadcastGameOver(latestHalfMove.CausedCheckmate, winner);
+        }
+        else
+        {
+
+            BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
+        }
+
+        MoveExecutedEvent?.Invoke();
+
+        return true;
+    }
+
+
+    /// <summary>
+    /// Handles special move behaviour asynchronously (castling, en passant, and promotion).
+    /// </summary>
+    /// <param name="specialMove">The special move to process.</param>
+    /// <returns>A task that resolves to true if the special move was handled; otherwise, false.</returns>
+    private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove) {
 		switch (specialMove) {
 			// Handle castling move.
 			case CastlingMove castlingMove:
