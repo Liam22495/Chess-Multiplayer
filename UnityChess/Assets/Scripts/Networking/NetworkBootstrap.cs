@@ -10,6 +10,7 @@ public class NetworkBootstrap : MonoBehaviour
     [SerializeField] private Button hostButton;
     [SerializeField] private Button clientButton;
     [SerializeField] private Button serverButton;
+    public GameObject latencyTrackerPrefab;
 
     private void Start()
     {
@@ -21,6 +22,7 @@ public class NetworkBootstrap : MonoBehaviour
         NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
+
 
     private void StartHost()
     {
@@ -48,7 +50,6 @@ public class NetworkBootstrap : MonoBehaviour
     {
         UnityEngine.Debug.Log($"Client connected: {clientId}");
 
-        //Assign players (host = white, client = black)
         if (NetworkManager.Singleton.IsHost && TurnManager.Instance != null)
         {
             var hostId = NetworkManager.Singleton.LocalClientId;
@@ -60,7 +61,6 @@ public class NetworkBootstrap : MonoBehaviour
                 TurnManager.Instance.AssignPlayers(hostId, otherClient);
             }
 
-            //Send current game state to newly joined client
             if (clientId != hostId)
             {
                 string currentGame = GameManager.Instance.SerializeGame();
@@ -73,7 +73,6 @@ public class NetworkBootstrap : MonoBehaviour
             }
         }
     }
-
 
     private void OnClientDisconnected(ulong clientId)
     {
