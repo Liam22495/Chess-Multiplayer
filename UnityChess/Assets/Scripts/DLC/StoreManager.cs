@@ -34,7 +34,6 @@ public class StoreManager : MonoBehaviour
     public GameObject skinItemPrefab;
     public Transform contentParent; // ScrollView > Viewport > Content
 
-    // Sample data (mocked for now)
     private List<SkinData> allSkins = new List<SkinData>()
     {
         new SkinData
@@ -43,8 +42,31 @@ public class StoreManager : MonoBehaviour
             imageUrl = "https://firebasestorage.googleapis.com/v0/b/chessmultiplayer-ed534.firebasestorage.app/o/Galaxy.jpg?alt=media&token=b1bbaed4-c588-41e5-a848-f4fa0bdeae64",
             price = 100,
             isPurchased = false
+        },
+        new SkinData
+        {
+            name = "Bright Galaxy Skin",
+            imageUrl = "https://firebasestorage.googleapis.com/v0/b/chessmultiplayer-ed534.firebasestorage.app/o/BrightGalaxy.jpg?alt=media&token=57c1703c-d600-4f84-8365-17e6cd92a09a",
+            price = 150,
+            isPurchased = false
+        },
+        new SkinData
+        {
+            name = "Orange Galaxy Skin",
+            imageUrl = "https://firebasestorage.googleapis.com/v0/b/chessmultiplayer-ed534.firebasestorage.app/o/OrangeGalaxy.jpg?alt=media&token=248ad426-f5c1-4cd7-8196-a96ad2d0a6ca",
+            price = 130,
+            isPurchased = false
+        },
+        new SkinData
+        {
+            name = "Swirl Galaxy Skin",
+            imageUrl = "https://firebasestorage.googleapis.com/v0/b/chessmultiplayer-ed534.firebasestorage.app/o/SwirlGalaxy.jpg?alt=media&token=39c7a0ca-fb08-4565-beb7-3f80603db6e9",
+            price = 120,
+            isPurchased = false
         }
     };
+
+
 
     void Awake()
     {
@@ -63,6 +85,8 @@ public class StoreManager : MonoBehaviour
             user = auth.CurrentUser;
             UnityEngine.Debug.Log("[AUTH] User is already signed in.");
             LoadOwnedSkins(PopulateStoreUI);
+            
+
         }
         else
         {
@@ -73,6 +97,7 @@ public class StoreManager : MonoBehaviour
                     user = auth.CurrentUser;
                     UnityEngine.Debug.Log($"[AUTH] Signed in anonymously as: {user.UserId}");
                     LoadOwnedSkins(PopulateStoreUI);
+
                 }
                 else
                 {
@@ -83,9 +108,10 @@ public class StoreManager : MonoBehaviour
     }
 
 
-
     void PopulateStoreUI()
     {
+        UnityEngine.Debug.Log($"[DEBUG] Populating {allSkins.Count} skin(s) in the UI");
+
         foreach (Transform child in contentParent)
         {
             Destroy(child.gameObject);
@@ -93,6 +119,8 @@ public class StoreManager : MonoBehaviour
 
         foreach (var skin in allSkins)
         {
+            UnityEngine.Debug.Log($"[DEBUG] Creating UI for skin: {skin.name}");
+
             GameObject item = Instantiate(skinItemPrefab, contentParent);
 
             var skinNameText = item.transform.Find("SkinNameText").GetComponent<TextMeshProUGUI>();
@@ -103,7 +131,7 @@ public class StoreManager : MonoBehaviour
             var useSkinBtn = item.transform.Find("UseSkinButton").GetComponent<Button>();
             var useSkinText = item.transform.Find("UseSkinButton/Text (TMP)").GetComponent<TextMeshProUGUI>();
 
-            // Populate UI
+            // Populate text fields
             skinNameText.text = skin.name;
             priceText.text = $"Price: {skin.price} Credits";
 
@@ -142,6 +170,7 @@ public class StoreManager : MonoBehaviour
             }
         }
     }
+
 
 
 
@@ -333,6 +362,5 @@ public class StoreManager : MonoBehaviour
               callback?.Invoke();
           });
     }
-
 
 }
