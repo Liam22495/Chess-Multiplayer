@@ -83,36 +83,61 @@ public class StoreManager : MonoBehaviour
     {
         foreach (Transform child in contentParent)
         {
-            Destroy(child.gameObject); // Clear old items if reloading
+            Destroy(child.gameObject);
         }
 
         foreach (var skin in allSkins)
         {
             GameObject item = Instantiate(skinItemPrefab, contentParent);
-            item.transform.Find("SkinNameText").GetComponent<TextMeshProUGUI>().text = skin.name;
-            item.transform.Find("PriceText").GetComponent<TextMeshProUGUI>().text = $"Price: {skin.price} Credits";
-            StartCoroutine(LoadImage(skin.imageUrl, item.transform.Find("PreviewImage").GetComponent<UnityEngine.UI.Image>()));
-            Button purchaseBtn = item.transform.Find("PurchaseButton").GetComponent<Button>();
-            TextMeshProUGUI buttonText = item.transform.Find("PurchaseButton/Text (TMP)").GetComponent<TextMeshProUGUI>();
+
+            var skinNameText = item.transform.Find("SkinNameText").GetComponent<TextMeshProUGUI>();
+            var priceText = item.transform.Find("PriceText").GetComponent<TextMeshProUGUI>();
+            var previewImage = item.transform.Find("PreviewImage").GetComponent<UnityEngine.UI.Image>();
+            var purchaseBtn = item.transform.Find("PurchaseButton").GetComponent<Button>();
+            var purchaseText = item.transform.Find("PurchaseButton/Text (TMP)").GetComponent<TextMeshProUGUI>();
+            var useSkinBtn = item.transform.Find("UseSkinButton").GetComponent<Button>();
+            var useSkinText = item.transform.Find("UseSkinButton/Text (TMP)").GetComponent<TextMeshProUGUI>();
+
+            // Populate UI
+            skinNameText.text = skin.name;
+            priceText.text = $"Price: {skin.price} Credits";
+
+            StartCoroutine(LoadImage(skin.imageUrl, previewImage));
 
             if (skin.isPurchased)
             {
                 purchaseBtn.interactable = false;
-                buttonText.text = "Owned";
+                purchaseText.text = "Owned";
+
+                useSkinBtn.gameObject.SetActive(true);
+                useSkinBtn.onClick.AddListener(() =>
+                {
+                    UnityEngine.Debug.Log($"[SKIN] Selected skin: {skin.name}");
+                    SendSelectedSkinToServer(skin.name);
+                });
             }
             else
             {
+                useSkinBtn.gameObject.SetActive(false);
                 purchaseBtn.onClick.AddListener(() =>
                 {
                     UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
                     StartCoroutine(DownloadAndSaveSkin(skin));
-                    purchaseBtn.interactable = false;
-                    buttonText.text = "Owned";
-                });
 
+                    purchaseBtn.interactable = false;
+                    purchaseText.text = "Owned";
+
+                    useSkinBtn.gameObject.SetActive(true);
+                    useSkinBtn.onClick.AddListener(() =>
+                    {
+                        UnityEngine.Debug.Log($"[SKIN] Selected skin: {skin.name}");
+                        SendSelectedSkinToServer(skin.name);
+                    });
+                });
             }
         }
     }
+
 
 
     System.Collections.IEnumerator DownloadAndSaveSkin(SkinData skin)
@@ -232,6 +257,14 @@ public class StoreManager : MonoBehaviour
             }
         }
     }
+
+    private void SendSelectedSkinToServer(string skinName)
+    {
+        var data = new SkinSyncManager.SkinSelectionData { skinName = skinName };
+        string json = JsonUtility.ToJson(data);
+        SkinSyncManager.Instance.SendSelectedSkinToServerRpc(json);
+    }
+
 
     private void LoadOwnedSkins(System.Action callback)
     {
