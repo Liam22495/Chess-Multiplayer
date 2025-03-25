@@ -36,6 +36,12 @@ public class SkinSyncManager : NetworkBehaviour
 
         //Store it on all clients
         playerSkins[clientId] = data.skinName;
+        BoardManager board = FindObjectOfType<BoardManager>();
+        if (board != null)
+        {
+            board.RefreshAllPieceSkins();
+        }
+
     }
 
 

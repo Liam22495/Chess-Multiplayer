@@ -26,9 +26,8 @@ public class VisualPiece : MonoBehaviour {
 	
 	// The radius used to detect nearby board squares for collision detection.
 	private const float SquareCollisionRadius = 9f;
-	
-	// The camera used to view the board.
-	private Camera boardCamera;
+    // The camera used to view the board.
+    private Camera boardCamera;
 	// The screen-space position of the piece when it is first picked up.
 	private Vector3 piecePositionSS;
 	// A reference to the piece's SphereCollider (if required for collision handling).
@@ -146,14 +145,14 @@ public class VisualPiece : MonoBehaviour {
             }
         }
 
-        // ✅ If it's not your turn, snap back and exit
+        //If it's not your turn, snap back and exit
         if (!IsOwnerTurn())
         {
             thisTransform.position = thisTransform.parent.position;
             return;
         }
 
-        // ✅ Create move and send to server
+        //Create move and send to server
         MoveData move = new MoveData(CurrentSquare, StringToSquare(closestSquareTransform.name));
         string json = JsonUtility.ToJson(move);
 
