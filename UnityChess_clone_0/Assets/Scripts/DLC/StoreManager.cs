@@ -57,7 +57,7 @@ public class StoreManager : MonoBehaviour
         {
             user = auth.CurrentUser;
             UnityEngine.Debug.Log("[AUTH] User is already signed in.");
-            PopulateStoreUI();
+            LoadOwnedSkins(PopulateStoreUI);
         }
         else
         {
@@ -67,7 +67,7 @@ public class StoreManager : MonoBehaviour
                 {
                     user = auth.CurrentUser;
                     UnityEngine.Debug.Log($"[AUTH] Signed in anonymously as: {user.UserId}");
-                    PopulateStoreUI();
+                    LoadOwnedSkins(PopulateStoreUI);
                 }
                 else
                 {
@@ -81,25 +81,39 @@ public class StoreManager : MonoBehaviour
 
     void PopulateStoreUI()
     {
+        foreach (Transform child in contentParent)
+        {
+            Destroy(child.gameObject); // Clear old items if reloading
+        }
+
         foreach (var skin in allSkins)
         {
             GameObject item = Instantiate(skinItemPrefab, contentParent);
-
             item.transform.Find("SkinNameText").GetComponent<TextMeshProUGUI>().text = skin.name;
-
             item.transform.Find("PriceText").GetComponent<TextMeshProUGUI>().text = $"Price: {skin.price} Credits";
-
             StartCoroutine(LoadImage(skin.imageUrl, item.transform.Find("PreviewImage").GetComponent<UnityEngine.UI.Image>()));
+            Button purchaseBtn = item.transform.Find("PurchaseButton").GetComponent<Button>();
+            TextMeshProUGUI buttonText = item.transform.Find("PurchaseButton/Text (TMP)").GetComponent<TextMeshProUGUI>();
 
-            item.transform.Find("PurchaseButton").GetComponent<Button>().onClick.AddListener(() =>
+            if (skin.isPurchased)
             {
-                StartCoroutine(DownloadAndSaveSkin(skin));
-                UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
-            });
+                purchaseBtn.interactable = false;
+                buttonText.text = "Owned";
+            }
+            else
+            {
+                purchaseBtn.onClick.AddListener(() =>
+                {
+                    UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
+                    StartCoroutine(DownloadAndSaveSkin(skin));
+                    purchaseBtn.interactable = false;
+                    buttonText.text = "Owned";
+                });
 
-
+            }
         }
     }
+
 
     System.Collections.IEnumerator DownloadAndSaveSkin(SkinData skin)
     {
@@ -119,7 +133,8 @@ public class StoreManager : MonoBehaviour
             if (user != null)
             {
                 DocumentReference docRef = db.Collection("users").Document(user.UserId)
-                                             .Collection("ownedSkins").Document(skin.name);
+                    .Collection("ownedSkins").Document(skin.name.Replace(" ", "_"));
+
 
                 Dictionary<string, object> skinData = new Dictionary<string, object>
             {
@@ -217,4 +232,55 @@ public class StoreManager : MonoBehaviour
             }
         }
     }
+
+    private void LoadOwnedSkins(System.Action callback)
+    {
+        if (user == null)
+        {
+            UnityEngine.Debug.LogWarning("[FIRESTORE] Cannot load owned skins — user is null.");
+            callback?.Invoke();
+            return;
+        }
+
+        UnityEngine.Debug.Log($"[FIRESTORE] Loading owned skins for user: {user.UserId}");
+
+        db.Collection("users").Document(user.UserId)
+          .Collection("ownedSkins")
+          .GetSnapshotAsync().ContinueWithOnMainThread(task =>
+          {
+              if (task.IsFaulted || task.IsCanceled)
+              {
+                  UnityEngine.Debug.LogError("[FIRESTORE] Failed to load owned skins.");
+                  callback?.Invoke();
+                  return;
+              }
+
+              QuerySnapshot snapshot = task.Result;
+
+              foreach (DocumentSnapshot doc in snapshot.Documents)
+              {
+                  string skinName = doc.Id;
+                  UnityEngine.Debug.Log($"[FIRESTORE] Document found: {skinName}");
+
+
+                  string localPath = null;
+                  if (doc.TryGetValue<string>("localPath", out var path))
+                  {
+                      localPath = path;
+                  }
+
+                  SkinData skin = allSkins.Find(s => s.name.Replace(" ", "_") == skinName);
+                  if (skin != null)
+                  {
+                      skin.isPurchased = true;
+                      skin.localPath = localPath;
+                      UnityEngine.Debug.Log($"[FIRESTORE] Marked '{skin.name}' as owned.");
+                  }
+              }
+
+              callback?.Invoke();
+          });
+    }
+
+
 }
