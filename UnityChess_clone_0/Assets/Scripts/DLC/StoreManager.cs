@@ -17,6 +17,14 @@ public class StoreManager : MonoBehaviour
     private FirebaseFirestore db;
     private FirebaseAuth auth;
     private FirebaseUser user;
+    public TextMeshProUGUI creditsText;
+    private int currentCredits = 0;
+    public GameObject storePanel;
+    public Button toggleStoreButton;
+    public TextMeshProUGUI toggleButtonText;
+    private bool storeVisible = false;
+
+
 
     [System.Serializable]
     public class SkinData
@@ -84,8 +92,10 @@ public class StoreManager : MonoBehaviour
         {
             user = auth.CurrentUser;
             UnityEngine.Debug.Log("[AUTH] User is already signed in.");
-            LoadOwnedSkins(PopulateStoreUI);
-            
+            LoadCredits(() =>
+            {
+                LoadOwnedSkins(PopulateStoreUI);
+            });
 
         }
         else
@@ -96,7 +106,10 @@ public class StoreManager : MonoBehaviour
                 {
                     user = auth.CurrentUser;
                     UnityEngine.Debug.Log($"[AUTH] Signed in anonymously as: {user.UserId}");
-                    LoadOwnedSkins(PopulateStoreUI);
+                    LoadCredits(() =>
+                    {
+                        LoadOwnedSkins(PopulateStoreUI);
+                    });
 
                 }
                 else
@@ -105,6 +118,19 @@ public class StoreManager : MonoBehaviour
                 }
             });
         }
+        toggleStoreButton.onClick.AddListener(ToggleStoreUI);
+
+    }
+    //To close the DLC and open
+
+    private void ToggleStoreUI()
+    {
+        storeVisible = !storeVisible;
+
+        storePanel.SetActive(storeVisible);
+        toggleButtonText.text = storeVisible ? "Close" : "Store";
+
+        UnityEngine.Debug.Log($"[UI] Toggled DLC Store: {(storeVisible ? "Visible" : "Hidden")}");
     }
 
 
@@ -152,26 +178,36 @@ public class StoreManager : MonoBehaviour
             else
             {
                 useSkinBtn.gameObject.SetActive(false);
+
                 purchaseBtn.onClick.AddListener(() =>
                 {
-                    UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
-                    StartCoroutine(DownloadAndSaveSkin(skin));
-
-                    purchaseBtn.interactable = false;
-                    purchaseText.text = "Owned";
-
-                    useSkinBtn.gameObject.SetActive(true);
-                    useSkinBtn.onClick.AddListener(() =>
+                    if (currentCredits >= skin.price)
                     {
-                        UnityEngine.Debug.Log($"[SKIN] Selected skin: {skin.name}");
-                        SendSelectedSkinToServer(skin.name);
-                    });
+                        currentCredits -= skin.price;
+                        SaveCredits();
+                        UpdateCreditsUI();
+
+                        UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
+                        StartCoroutine(DownloadAndSaveSkin(skin));
+
+                        purchaseBtn.interactable = false;
+                        purchaseText.text = "Owned";
+
+                        useSkinBtn.gameObject.SetActive(true);
+                        useSkinBtn.onClick.AddListener(() =>
+                        {
+                            UnityEngine.Debug.Log($"[SKIN] Selected skin: {skin.name}");
+                            SendSelectedSkinToServer(skin.name);
+                        });
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogWarning($"[CREDITS] Not enough credits to purchase {skin.name}. Needed: {skin.price}, Available: {currentCredits}");
+                    }
                 });
             }
         }
     }
-
-
 
 
     System.Collections.IEnumerator DownloadAndSaveSkin(SkinData skin)
@@ -312,6 +348,69 @@ public class StoreManager : MonoBehaviour
         SkinSyncManager.Instance.SendSelectedSkinToServerRpc(json);
     }
 
+    private void SaveCredits()
+    {
+        if (user == null) return;
+
+        DocumentReference userRef = db.Collection("users").Document(user.UserId);
+        userRef.UpdateAsync(new Dictionary<string, object> {
+        { "credits", currentCredits }
+    });
+    }
+
+
+    private void LoadCredits(System.Action callback = null)
+    {
+        if (user == null)
+        {
+            UnityEngine.Debug.LogWarning("[CREDITS] Cannot load credits — user is null.");
+            return;
+        }
+
+        DocumentReference userRef = db.Collection("users").Document(user.UserId);
+
+        userRef.GetSnapshotAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsCompletedSuccessfully)
+            {
+                var snapshot = task.Result;
+
+                if (snapshot.Exists && snapshot.TryGetValue("credits", out int loadedCredits))
+                {
+                    currentCredits = loadedCredits;
+                    UnityEngine.Debug.Log($"[CREDITS] Loaded: {currentCredits}");
+                }
+                else
+                {
+                    currentCredits = 500;
+
+                    //Save initial credits for new user
+                    Dictionary<string, object> newUserData = new Dictionary<string, object>
+                {
+                    { "credits", currentCredits }
+                };
+
+                    userRef.SetAsync(newUserData, SetOptions.MergeAll);
+                    UnityEngine.Debug.Log("[CREDITS] No credits found — assigning 500 default.");
+                }
+
+                UpdateCreditsUI();
+                callback?.Invoke();
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("[CREDITS] Failed to load credits.");
+                callback?.Invoke();
+            }
+        });
+    }
+
+
+    private void UpdateCreditsUI()
+    {
+        if (creditsText != null)
+            creditsText.text = $"Credits: {currentCredits}";
+    }
 
 
     private void LoadOwnedSkins(System.Action callback)
