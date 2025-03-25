@@ -56,13 +56,14 @@ public class StoreManager : MonoBehaviour
         if (auth.CurrentUser != null)
         {
             user = auth.CurrentUser;
+            UnityEngine.Debug.Log("[AUTH] User is already signed in.");
             PopulateStoreUI();
         }
         else
         {
-            auth.SignInAnonymouslyAsync().ContinueWith(task =>
+            auth.SignInAnonymouslyAsync().ContinueWithOnMainThread(task =>
             {
-                if (task.IsCompleted && !task.IsCanceled && !task.IsFaulted)
+                if (task.IsCompletedSuccessfully)
                 {
                     user = auth.CurrentUser;
                     UnityEngine.Debug.Log($"[AUTH] Signed in anonymously as: {user.UserId}");
@@ -75,6 +76,7 @@ public class StoreManager : MonoBehaviour
             });
         }
     }
+
 
 
     void PopulateStoreUI()
@@ -104,23 +106,27 @@ public class StoreManager : MonoBehaviour
         string fileName = skin.name.Replace(" ", "_") + ".jpg";
         string savePath = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, fileName);
 
+        // Skip download if file already exists
         if (System.IO.File.Exists(savePath))
         {
             UnityEngine.Debug.Log($"[INFO] Skin '{skin.name}' already exists at: {savePath}");
             skin.localPath = savePath;
             skin.isPurchased = true;
 
+            UnityEngine.Debug.Log($"[DEBUG] Current Firebase User ID: {user?.UserId}");
+
+            // Save ownership to Firestore
             if (user != null)
             {
                 DocumentReference docRef = db.Collection("users").Document(user.UserId)
                                              .Collection("ownedSkins").Document(skin.name);
 
                 Dictionary<string, object> skinData = new Dictionary<string, object>
-                {
-                    { "name", skin.name },
-                    { "localPath", savePath },
-                    { "timestamp", Firebase.Firestore.FieldValue.ServerTimestamp }
-                };
+            {
+                { "name", skin.name },
+                { "localPath", savePath },
+                { "timestamp", Firebase.Firestore.FieldValue.ServerTimestamp }
+            };
 
                 docRef.SetAsync(skinData).ContinueWithOnMainThread(task =>
                 {
@@ -130,14 +136,13 @@ public class StoreManager : MonoBehaviour
                     }
                     else
                     {
-                        UnityEngine.Debug.LogError($"[FIRESTORE] Failed to save ownership of '{skin.name}'");
+                        UnityEngine.Debug.LogError($"[FIRESTORE] Failed to save ownership of '{skin.name}': {task.Exception?.Message}");
                     }
                 });
             }
 
             yield break;
         }
-
 
         using (UnityEngine.Networking.UnityWebRequest www = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(skin.imageUrl))
         {
@@ -157,6 +162,9 @@ public class StoreManager : MonoBehaviour
                 skin.isPurchased = true;
 
                 UnityEngine.Debug.Log($"[SUCCESS] Skin '{skin.name}' saved to: {savePath}");
+
+                //Debug Firebase User ID
+                UnityEngine.Debug.Log($"[DEBUG] Current Firebase User ID: {user?.UserId}");
 
                 // Save ownership to Firestore
                 if (user != null)
@@ -179,7 +187,7 @@ public class StoreManager : MonoBehaviour
                         }
                         else
                         {
-                            UnityEngine.Debug.LogError($"[FIRESTORE] Failed to save ownership of '{skin.name}'");
+                            UnityEngine.Debug.LogError($"[FIRESTORE] Failed to save ownership of '{skin.name}': {task.Exception?.Message}");
                         }
                     });
                 }
