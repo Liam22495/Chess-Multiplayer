@@ -4,6 +4,7 @@ using UnityChess;
 using UnityEngine;
 using Unity.Netcode;
 using static UnityChess.SquareUtil;
+using static System.Net.Mime.MediaTypeNames;
 
 /// <summary>
 /// Manages the visual representation of the chess board and piece placement.
@@ -150,28 +151,61 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 		rookGO.transform.localPosition = Vector3.zero;
 	}
 
-	/// <summary>
-	/// Instantiates and places the visual representation of a piece on the board.
-	/// </summary>
-	/// <param name="piece">The chess piece to display.</param>
-	/// <param name="position">The board square where the piece should be placed.</param>
-	public void CreateAndPlacePieceGO(Piece piece, Square position) {
-		// Construct the model name based on the piece's owner and type.
-		string modelName = $"{piece.Owner} {piece.GetType().Name}";
-		// Instantiate the piece GameObject from the corresponding resource.
-		GameObject pieceGO = Instantiate(
-			Resources.Load("PieceSets/Marble/" + modelName) as GameObject,
-			positionMap[position].transform
-		);
-	}
+    /// <summary>
+    /// Instantiates and places the visual representation of a piece on the board.
+    /// </summary>
+    /// <param name="piece">The chess piece to display.</param>
+    /// <param name="position">The board square where the piece should be placed.</param>
+    public void CreateAndPlacePieceGO(Piece piece, Square position)
+    {
+        string modelName = $"{piece.Owner} {piece.GetType().Name}";
 
-	/// <summary>
-	/// Retrieves all square GameObjects within a specified radius of a world-space position.
-	/// </summary>
-	/// <param name="squareGOs">A list to be populated with the found square GameObjects.</param>
-	/// <param name="positionWS">The world-space position to check around.</param>
-	/// <param name="radius">The radius within which to search.</param>
-	public void GetSquareGOsWithinRadius(List<GameObject> squareGOs, Vector3 positionWS, float radius) {
+        // Instantiate the base prefab
+        GameObject pieceGO = Instantiate(
+            Resources.Load("PieceSets/Marble/" + modelName) as GameObject,
+            positionMap[position].transform
+        );
+
+        //Apply skin if available
+        if (SkinSyncManager.Instance != null)
+        {
+            ulong ownerClientId = piece.Owner == UnityChess.Side.White ? 0ul : 1ul;
+
+            string skinName = SkinSyncManager.Instance.GetSkinForClient(ownerClientId);
+            if (!string.IsNullOrEmpty(skinName))
+            {
+                string path = System.IO.Path.Combine(Application.persistentDataPath, skinName.Replace(" ", "_") + ".jpg");
+                if (System.IO.File.Exists(path))
+                {
+                    byte[] bytes = System.IO.File.ReadAllBytes(path);
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(bytes);
+                    Sprite skinSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+
+                    // Apply the sprite to any SpriteRenderer
+                    SpriteRenderer renderer = pieceGO.GetComponentInChildren<SpriteRenderer>();
+                    if (renderer != null)
+                    {
+                        renderer.sprite = skinSprite;
+                        UnityEngine.Debug.Log($"[SkinApply] Applied skin '{skinName}' to piece: {modelName}");
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning($"[SkinApply] Skin image not found at path: {path}");
+                }
+            }
+        }
+    }
+
+
+    /// <summary>
+    /// Retrieves all square GameObjects within a specified radius of a world-space position.
+    /// </summary>
+    /// <param name="squareGOs">A list to be populated with the found square GameObjects.</param>
+    /// <param name="positionWS">The world-space position to check around.</param>
+    /// <param name="radius">The radius within which to search.</param>
+    public void GetSquareGOsWithinRadius(List<GameObject> squareGOs, Vector3 positionWS, float radius) {
 		// Compute the square of the radius for efficiency.
 		float radiusSqr = radius * radius;
 		// Iterate over all square GameObjects.

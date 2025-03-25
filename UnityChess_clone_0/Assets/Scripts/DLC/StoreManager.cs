@@ -46,6 +46,11 @@ public class StoreManager : MonoBehaviour
         }
     };
 
+    void Awake()
+    {
+        FirebaseFirestore.DefaultInstance.Settings.PersistenceEnabled = false;
+    }
+
     void Start()
     {
         UnityEngine.Debug.Log($"Skins will be saved at: {UnityEngine.Application.persistentDataPath}");
@@ -260,10 +265,24 @@ public class StoreManager : MonoBehaviour
 
     private void SendSelectedSkinToServer(string skinName)
     {
+        if (SkinSyncManager.Instance == null)
+        {
+            UnityEngine.Debug.LogError("[SKIN] SkinSyncManager.Instance is NULL. Aborting skin sync.");
+            return;
+        }
+
+        if (!Unity.Netcode.NetworkManager.Singleton.IsServer && !Unity.Netcode.NetworkManager.Singleton.IsClient)
+        {
+            UnityEngine.Debug.LogWarning("[SKIN] Network is not running. Skipping skin sync.");
+            return;
+        }
+
         var data = new SkinSyncManager.SkinSelectionData { skinName = skinName };
         string json = JsonUtility.ToJson(data);
+        UnityEngine.Debug.Log("[SKIN] Sending selected skin to server: " + skinName);
         SkinSyncManager.Instance.SendSelectedSkinToServerRpc(json);
     }
+
 
 
     private void LoadOwnedSkins(System.Action callback)

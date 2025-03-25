@@ -34,11 +34,23 @@ public class SkinSyncManager : NetworkBehaviour
         SkinSelectionData data = JsonUtility.FromJson<SkinSelectionData>(jsonSkinData);
         UnityEngine.Debug.Log("[SkinSync] Client received skin update: " + clientId + " -> " + data.skinName);
 
+        //Store it on all clients
+        playerSkins[clientId] = data.skinName;
     }
+
 
     [System.Serializable]
     public class SkinSelectionData
     {
         public string skinName;
     }
+
+    public string GetSkinForClient(ulong clientId)
+    {
+        if (playerSkins.ContainsKey(clientId))
+            return playerSkins[clientId];
+
+        return null;
+    }
+
 }
