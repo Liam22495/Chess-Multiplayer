@@ -155,23 +155,63 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 	/// </summary>
 	/// <param name="piece">The chess piece to display.</param>
 	/// <param name="position">The board square where the piece should be placed.</param>
-	public void CreateAndPlacePieceGO(Piece piece, Square position) {
-		// Construct the model name based on the piece's owner and type.
+	public void CreateAndPlacePieceGO(Piece piece, Square position)
+	{
+		// Construct model name based on piece's owner and type
 		string modelName = $"{piece.Owner} {piece.GetType().Name}";
-		// Instantiate the piece GameObject from the corresponding resource.
+
 		GameObject pieceGO = Instantiate(
 			Resources.Load("PieceSets/Marble/" + modelName) as GameObject,
 			positionMap[position].transform
 		);
+
+		//Apply skin if available
+		if (SkinSyncManager.Instance != null)
+		{
+			ulong ownerClientId = piece.Owner == UnityChess.Side.White ? 0ul : 1ul;
+			string skinName = SkinSyncManager.Instance.GetSkinForClient(ownerClientId);
+
+			if (!string.IsNullOrEmpty(skinName))
+			{
+				string path = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, skinName.Replace(" ", "_") + ".jpg");
+
+				if (System.IO.File.Exists(path))
+				{
+					byte[] bytes = System.IO.File.ReadAllBytes(path);
+					Texture2D texture = new Texture2D(2, 2);
+					texture.LoadImage(bytes);
+
+					// 🔁 Assign the loaded texture to material
+					Renderer renderer = pieceGO.GetComponentInChildren<Renderer>();
+					if (renderer != null)
+					{
+						Material newMat = new Material(renderer.sharedMaterial);
+						newMat.mainTexture = texture;
+						renderer.material = newMat;
+
+						UnityEngine.Debug.Log($"[SkinApply] Applied skin '{skinName}' to {piece.Owner} {piece.GetType().Name}");
+					}
+					else
+					{
+						UnityEngine.Debug.LogWarning("[SkinApply] No Mesh Renderer found on piece.");
+					}
+				}
+				else
+				{
+					UnityEngine.Debug.LogWarning("[SkinApply] Skin image not found at path: " + path);
+				}
+			}
+		}
 	}
 
-	/// <summary>
-	/// Retrieves all square GameObjects within a specified radius of a world-space position.
-	/// </summary>
-	/// <param name="squareGOs">A list to be populated with the found square GameObjects.</param>
-	/// <param name="positionWS">The world-space position to check around.</param>
-	/// <param name="radius">The radius within which to search.</param>
-	public void GetSquareGOsWithinRadius(List<GameObject> squareGOs, Vector3 positionWS, float radius) {
+
+    /// <summary>
+    /// Retrieves all square GameObjects within a specified radius of a world-space position.
+    /// </summary>
+    /// <param name="squareGOs">A list to be populated with the found square GameObjects.</param>
+    /// <param name="positionWS">The world-space position to check around.</param>
+    /// <param name="radius">The radius within which to search.</param>
+    public void GetSquareGOsWithinRadius(List<GameObject> squareGOs, Vector3 positionWS, float radius) {
 		// Compute the square of the radius for efficiency.
 		float radiusSqr = radius * radius;
 		// Iterate over all square GameObjects.
@@ -278,11 +318,44 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 		}
 	}
 
-	/// <summary>
-	/// Retrieves the GameObject for a board square based on its chess notation.
-	/// </summary>
-	/// <param name="position">The board square to find.</param>
-	/// <returns>The corresponding square GameObject.</returns>
-	public GameObject GetSquareGOByPosition(Square position) =>
+    public void RefreshAllPieceSkins()
+    {
+        VisualPiece[] allPieces = FindObjectsOfType<VisualPiece>();
+
+        foreach (var piece in allPieces)
+        {
+            ulong ownerClientId = piece.PieceColor == UnityChess.Side.White ? 0ul : 1ul;
+            string skinName = SkinSyncManager.Instance.GetSkinForClient(ownerClientId);
+
+            if (!string.IsNullOrEmpty(skinName))
+            {
+                string path = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, skinName.Replace(" ", "_") + ".jpg");
+                if (System.IO.File.Exists(path))
+                {
+                    byte[] bytes = System.IO.File.ReadAllBytes(path);
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(bytes);
+
+                    Renderer renderer = piece.GetComponentInChildren<Renderer>();
+                    if (renderer != null)
+                    {
+                        Material newMat = new Material(renderer.sharedMaterial);
+                        newMat.mainTexture = texture;
+                        renderer.material = newMat;
+
+                        UnityEngine.Debug.Log($"[SkinApply] Updated skin '{skinName}' for {piece.name}");
+                    }
+                }
+            }
+        }
+    }
+
+
+    /// <summary>
+    /// Retrieves the GameObject for a board square based on its chess notation.
+    /// </summary>
+    /// <param name="position">The board square to find.</param>
+    /// <returns>The corresponding square GameObject.</returns>
+    public GameObject GetSquareGOByPosition(Square position) =>
 		Array.Find(allSquaresGO, go => go.name == SquareToString(position));
 }
