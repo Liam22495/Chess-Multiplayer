@@ -67,15 +67,14 @@ public class GameEndHandler : NetworkBehaviour
 
     private void SaveGameStateToFirestore(string resultMessage)
     {
-        var user = Firebase.Auth.FirebaseAuth.DefaultInstance?.CurrentUser;
-        if (user == null)
+        if (string.IsNullOrEmpty(UserSession.CurrentUserId))
         {
-            UnityEngine.Debug.LogWarning("[Firebase] No signed-in user. Skipping game save.");
+            UnityEngine.Debug.LogWarning("[Firebase] No user ID available. Skipping game save.");
             return;
         }
 
         string gameState = GameManager.Instance.SerializeGame();
-        string userId = user.UserId;
+        string userId = UserSession.CurrentUserId;
 
         var db = Firebase.Firestore.FirebaseFirestore.DefaultInstance;
         var gameData = new Dictionary<string, object>
@@ -88,7 +87,7 @@ public class GameEndHandler : NetworkBehaviour
         db.Collection("users").Document(userId).Collection("savedGames").AddAsync(gameData).ContinueWith(task =>
         {
             if (task.IsCompletedSuccessfully)
-                UnityEngine.Debug.Log("[Firebase] Game state saved.");
+                UnityEngine.Debug.Log($"[Firebase] Game state saved under user '{userId}'.");
             else
                 UnityEngine.Debug.LogError("[Firebase] Failed to save game state: " + task.Exception?.Message);
         });
