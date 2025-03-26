@@ -7,6 +7,9 @@ public class GameEndHandler : NetworkBehaviour
 {
     public static GameEndHandler Instance;
 
+    private bool gameHasEnded = false; 
+
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -14,9 +17,13 @@ public class GameEndHandler : NetworkBehaviour
 
     public void BroadcastGameOver(bool checkmate, string winner)
     {
+        if (gameHasEnded) return;
+        gameHasEnded = true;
+
         string result = checkmate ? $"{winner} wins by checkmate!" : "Draw by stalemate!";
         SendGameEndToClientsClientRpc(result);
     }
+
 
     [ClientRpc]
     private void SendGameEndToClientsClientRpc(string message)
@@ -55,4 +62,21 @@ public class GameEndHandler : NetworkBehaviour
 
         UnityEngine.Debug.Log("[Analytics] Match end event sent.");
     }
+
+    private void OnEnable()
+    {
+        GameManager.NewGameStartedEvent += ResetGameOverState;
+    }
+
+    private void OnDisable()
+    {
+        GameManager.NewGameStartedEvent -= ResetGameOverState;
+    }
+
+    private void ResetGameOverState()
+    {
+        gameHasEnded = false;
+        UnityEngine.Debug.Log("[GameEndHandler] Game state reset — ready for next match.");
+    }
+
 }

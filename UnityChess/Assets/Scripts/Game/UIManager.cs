@@ -13,21 +13,13 @@ using UnityEngine.UI;
 public class UIManager : MonoBehaviourSingleton<UIManager> {
 	// Reference to the promotion UI panel.
 	[SerializeField] private GameObject promotionUI = null;
-	// Text element to display game result messages (e.g. win, draw).
 	[SerializeField] private Text resultText = null;
-	// Input field to display and edit the serialized game state string.
 	[SerializeField] private InputField GameStringInputField = null;
-	// Indicator image for White's turn.
 	[SerializeField] private Image whiteTurnIndicator = null;
-	// Indicator image for Black's turn.
 	[SerializeField] private Image blackTurnIndicator = null;
-	// Parent GameObject that holds the move history UI elements.
 	[SerializeField] private GameObject moveHistoryContentParent = null;
-	// Scrollbar for the move history list.
 	[SerializeField] private Scrollbar moveHistoryScrollbar = null;
-	// Prefab for the full move UI element.
 	[SerializeField] private FullMoveUI moveUIPrefab = null;
-	// Array of text elements for displaying board information.
 	[SerializeField] private Text[] boardInfoTexts = null;
 	// Background colour for the move history UI.
 	[SerializeField] private Color backgroundColor = new Color(0.39f, 0.39f, 0.39f);
@@ -71,7 +63,18 @@ public class UIManager : MonoBehaviourSingleton<UIManager> {
     public void ShowGameEndMessage(string message)
     {
         UnityEngine.Debug.Log($"[UIManager] Game ended: {message}");
+
+        if (resultText != null)
+        {
+            resultText.text = message;
+            resultText.gameObject.SetActive(true);
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning("[UIManager] resultText is NULL.");
+        }
     }
+
 
 
     /// <summary>
