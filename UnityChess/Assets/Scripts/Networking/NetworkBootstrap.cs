@@ -3,7 +3,11 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Linq;
-using static System.Net.Mime.MediaTypeNames;
+using Unity.Services.Analytics;
+using UnityEngine.Analytics;
+using Unity.Services.Core;
+using System.Collections.Generic;
+using Firebase.Auth;
 
 public class NetworkBootstrap : MonoBehaviour
 {
@@ -23,7 +27,6 @@ public class NetworkBootstrap : MonoBehaviour
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
-
     private void StartHost()
     {
         NetworkManager.Singleton.StartHost();
@@ -38,13 +41,11 @@ public class NetworkBootstrap : MonoBehaviour
             UnityEngine.Debug.Log("Connecting as client...");
     }
 
-
     private void StartServer()
     {
         NetworkManager.Singleton.StartServer();
         UnityEngine.Debug.Log("Server started.");
     }
-
 
     private void OnClientConnected(ulong clientId)
     {
@@ -59,6 +60,11 @@ public class NetworkBootstrap : MonoBehaviour
             {
                 var otherClient = clientIds.FirstOrDefault(id => id != hostId);
                 TurnManager.Instance.AssignPlayers(hostId, otherClient);
+
+                //Log match start analytics event
+                string matchId = System.Guid.NewGuid().ToString();
+                string userId = FirebaseAuth.DefaultInstance?.CurrentUser?.UserId ?? "anonymous";
+                LogMatchStartAnalytics(matchId, "White", userId);
             }
 
             if (clientId != hostId)
@@ -79,4 +85,17 @@ public class NetworkBootstrap : MonoBehaviour
         UnityEngine.Debug.LogWarning($"Client disconnected: {clientId}");
     }
 
+    //Analytics function for match start
+    private void LogMatchStartAnalytics(string matchId, string playerSide, string userId)
+    {
+        Analytics.CustomEvent("match_started", new Dictionary<string, object>
+        {
+            { "match_id", matchId },
+            { "player_side", playerSide },
+            { "player_id", userId },
+            { "timestamp", System.DateTime.UtcNow.ToString("o") }
+        });
+
+        UnityEngine.Debug.Log("[Analytics] Match started event sent.");
+    }
 }

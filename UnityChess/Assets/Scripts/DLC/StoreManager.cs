@@ -8,6 +8,8 @@ using Firebase;
 using Firebase.Auth;
 using Firebase.Firestore;
 using Firebase.Extensions;
+using UnityEngine.Analytics;
+
 
 
 
@@ -187,6 +189,14 @@ public class StoreManager : MonoBehaviour
                         SaveCredits();
                         UpdateCreditsUI();
 
+                        Analytics.CustomEvent("dlc_purchase", new Dictionary<string, object>
+                        {
+                            { "skin_name", skin.name },
+                            { "price", skin.price },
+                            { "timestamp", System.DateTime.UtcNow.ToString("o") },
+                            { "user_id", user?.UserId ?? "anonymous" }
+                        });
+                        UnityEngine.Debug.Log("[Analytics] DLC purchase event sent.");
                         UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
                         StartCoroutine(DownloadAndSaveSkin(skin));
 

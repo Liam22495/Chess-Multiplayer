@@ -852,7 +852,7 @@ PlayerSettings:
   metroCertificateNotAfter: 0000000000000000
   metroApplicationDescription: UnityChess
   wsaImages: {}
-  metroTileShortName: 
+  metroTileShortName: UnityChess
   metroTileShowName: 0
   metroMediumTileShowName: 0
   metroLargeTileShowName: 0

@@ -1,5 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Analytics;
+using System.Collections.Generic; 
 
 public class GameEndHandler : NetworkBehaviour
 {
@@ -26,7 +28,31 @@ public class GameEndHandler : NetworkBehaviour
 
         if (UIManager.Instance != null)
         {
-            UIManager.Instance.ShowGameEndMessage(message); // implement this if needed
+            UIManager.Instance.ShowGameEndMessage(message);
         }
+
+        //Log match end analytics event
+        LogMatchEndAnalytics(message);
+    }
+
+    //Analytics event logger for match end
+    private void LogMatchEndAnalytics(string resultMessage)
+    {
+        string matchResult = resultMessage.Contains("Draw") ? "draw" : "win";
+        string winnerSide = resultMessage.Contains("White") ? "White" :
+                            resultMessage.Contains("Black") ? "Black" : "Unknown";
+
+        // Temporary matchId — can later replace with persistent ID
+        string matchId = "match-" + System.DateTime.UtcNow.Ticks;
+
+        Analytics.CustomEvent("match_ended", new Dictionary<string, object>
+        {
+            { "match_id", matchId },
+            { "result", matchResult },
+            { "winner", winnerSide },
+            { "timestamp", System.DateTime.UtcNow.ToString("o") }
+        });
+
+        UnityEngine.Debug.Log("[Analytics] Match end event sent.");
     }
 }
