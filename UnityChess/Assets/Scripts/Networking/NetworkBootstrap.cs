@@ -43,6 +43,7 @@ public class NetworkBootstrap : MonoBehaviour
     private void StartHost()
     {
         UserSession.CurrentUserId = "Player1";
+        UnityEngine.Debug.Log("[BOOTSTRAP] Assigned UserSession ID: " + UserSession.CurrentUserId);
         storeManager.InitializeStoreAfterLogin();
         NetworkManager.Singleton.StartHost();
         UnityEngine.Debug.Log("[UserSession] Host started as Player1");
@@ -51,6 +52,7 @@ public class NetworkBootstrap : MonoBehaviour
     private void StartClient()
     {
         UserSession.CurrentUserId = "Player2";
+        UnityEngine.Debug.Log("[BOOTSTRAP] Assigned UserSession ID: " + UserSession.CurrentUserId);
         storeManager.InitializeStoreAfterLogin();
         if (NetworkManager.Singleton.StartClient())
         {
