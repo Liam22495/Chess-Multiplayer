@@ -8,6 +8,8 @@ using UnityEngine.Analytics;
 using Unity.Services.Core;
 using System.Collections.Generic;
 using Firebase.Auth;
+using Firebase.Extensions;
+using System;
 
 public class NetworkBootstrap : MonoBehaviour
 {
@@ -15,30 +17,93 @@ public class NetworkBootstrap : MonoBehaviour
     [SerializeField] private Button clientButton;
     [SerializeField] private Button serverButton;
     public GameObject latencyTrackerPrefab;
+    private StoreManager storeManager;
 
     private void Start()
     {
+        FirebaseAuth.DefaultInstance.SignOut();
+        PlayerPrefs.DeleteKey("last_firebase_uid");
+        PlayerPrefs.Save();
+        UnityEngine.Debug.Log("[AUTH] Signed out and cleared UID cache on startup testing purpose");
+
+        // Setup UI button events
         hostButton.onClick.AddListener(StartHost);
         clientButton.onClick.AddListener(StartClient);
         serverButton.onClick.AddListener(StartServer);
 
-        // Subscribe to connection events
+        // Find StoreManager
+        storeManager = FindObjectOfType<StoreManager>();
+
+        // Register networking events
         NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
+
     private void StartHost()
     {
+        UserSession.CurrentUserId = "Player1";
+        storeManager.InitializeStoreAfterLogin();
         NetworkManager.Singleton.StartHost();
-        UnityEngine.Debug.Log("Hosting...");
+        UnityEngine.Debug.Log("[UserSession] Host started as Player1");
     }
 
     private void StartClient()
     {
-        if (!NetworkManager.Singleton.StartClient())
-            UnityEngine.Debug.LogWarning("Failed to connect as client.");
+        UserSession.CurrentUserId = "Player2";
+        storeManager.InitializeStoreAfterLogin();
+        if (NetworkManager.Singleton.StartClient())
+        {
+            UnityEngine.Debug.Log("[UserSession] Client started as Player2");
+        }
         else
-            UnityEngine.Debug.Log("Connecting as client...");
+        {
+            UnityEngine.Debug.LogWarning("Client connection failed.");
+        }
+    }
+
+
+    private void SignInAndContinue(Action onSuccess)
+    {
+        var auth = FirebaseAuth.DefaultInstance;
+        string cachedUid = PlayerPrefs.GetString("last_firebase_uid", "");
+
+        if (auth.CurrentUser != null)
+        {
+            string currentUid = auth.CurrentUser.UserId;
+
+            if (currentUid != cachedUid && !string.IsNullOrEmpty(cachedUid))
+            {
+                UnityEngine.Debug.LogWarning($"[AUTH] Mismatch detected! Cached UID = {cachedUid}, Current UID = {currentUid}. Signing out...");
+                auth.SignOut();
+                SignInAndContinue(onSuccess);
+                return;
+            }
+
+            UnityEngine.Debug.Log("[AUTH] Already signed in with correct UID: " + currentUid);
+            storeManager.InitializeStoreAfterLogin();
+            onSuccess?.Invoke();
+            return;
+        }
+
+        auth.SignInAnonymouslyAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsCompletedSuccessfully)
+            {
+                string newUid = auth.CurrentUser.UserId;
+                UnityEngine.Debug.Log("[AUTH] Signed in anonymously as: " + newUid);
+
+                PlayerPrefs.SetString("last_firebase_uid", newUid);
+                PlayerPrefs.Save();
+
+                storeManager.InitializeStoreAfterLogin();
+                onSuccess?.Invoke();
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("[AUTH] Failed to sign in anonymously: " + task.Exception?.Message);
+            }
+        });
     }
 
     private void StartServer()

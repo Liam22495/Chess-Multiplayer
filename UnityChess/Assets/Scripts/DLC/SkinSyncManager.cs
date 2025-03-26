@@ -5,7 +5,6 @@ using System.Collections.Generic;
 public class SkinSyncManager : NetworkBehaviour
 {
     public static SkinSyncManager Instance;
-
     private Dictionary<ulong, string> playerSkins = new Dictionary<ulong, string>();
 
     private void Awake()

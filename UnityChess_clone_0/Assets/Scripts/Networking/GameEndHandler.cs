@@ -1,13 +1,13 @@
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Analytics;
-using System.Collections.Generic; 
+using System.Collections.Generic;
 
 public class GameEndHandler : NetworkBehaviour
 {
     public static GameEndHandler Instance;
 
-    private bool gameHasEnded = false; 
+    private bool gameHasEnded = false;
 
 
     private void Awake()

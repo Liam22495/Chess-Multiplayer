@@ -1,32 +1,25 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using static System.Net.Mime.MediaTypeNames;
 using System.Diagnostics;
 using Firebase;
-using Firebase.Auth;
 using Firebase.Firestore;
 using Firebase.Extensions;
 using UnityEngine.Analytics;
-
-
 
 
 public class StoreManager : MonoBehaviour
 {
 
     private FirebaseFirestore db;
-    private FirebaseAuth auth;
-    private FirebaseUser user;
     public TextMeshProUGUI creditsText;
     private int currentCredits = 0;
     public GameObject storePanel;
     public Button toggleStoreButton;
     public TextMeshProUGUI toggleButtonText;
     private bool storeVisible = false;
-
-
 
     [System.Serializable]
     public class SkinData
@@ -37,8 +30,6 @@ public class StoreManager : MonoBehaviour
         public bool isPurchased;
         public string localPath;
     }
-
-
 
     [Header("UI References")]
     public GameObject skinItemPrefab;
@@ -77,7 +68,6 @@ public class StoreManager : MonoBehaviour
     };
 
 
-
     void Awake()
     {
         FirebaseFirestore.DefaultInstance.Settings.PersistenceEnabled = false;
@@ -85,44 +75,29 @@ public class StoreManager : MonoBehaviour
 
     void Start()
     {
-        UnityEngine.Debug.Log($"Skins will be saved at: {UnityEngine.Application.persistentDataPath}");
-
-        auth = FirebaseAuth.DefaultInstance;
         db = FirebaseFirestore.DefaultInstance;
+        toggleStoreButton.onClick.AddListener(ToggleStoreUI);
 
-        if (auth.CurrentUser != null)
+        UnityEngine.Debug.Log("[StoreManager] StoreManager started. Awaiting InitializeStoreAfterLogin() call...");
+    }
+
+
+
+    public void InitializeStoreAfterLogin()
+    {
+        if (!string.IsNullOrEmpty(UserSession.CurrentUserId))
         {
-            user = auth.CurrentUser;
-            UnityEngine.Debug.Log("[AUTH] User is already signed in.");
-            LoadCredits(() =>
-            {
-                LoadOwnedSkins(PopulateStoreUI);
-            });
-
+            UnityEngine.Debug.Log($"[StoreManager] Initializing store for user: {UserSession.CurrentUserId}");
+            LoadCredits(() => LoadOwnedSkins(PopulateStoreUI));
         }
         else
         {
-            auth.SignInAnonymouslyAsync().ContinueWithOnMainThread(task =>
-            {
-                if (task.IsCompletedSuccessfully)
-                {
-                    user = auth.CurrentUser;
-                    UnityEngine.Debug.Log($"[AUTH] Signed in anonymously as: {user.UserId}");
-                    LoadCredits(() =>
-                    {
-                        LoadOwnedSkins(PopulateStoreUI);
-                    });
-
-                }
-                else
-                {
-                    UnityEngine.Debug.LogError("[AUTH] Failed to sign in anonymously.");
-                }
-            });
+            UnityEngine.Debug.LogWarning("[StoreManager] Cannot initialize store â€” CurrentUserId is empty.");
         }
-        toggleStoreButton.onClick.AddListener(ToggleStoreUI);
-
     }
+
+
+
     //To close the DLC and open
 
     private void ToggleStoreUI()
@@ -194,7 +169,7 @@ public class StoreManager : MonoBehaviour
                             { "skin_name", skin.name },
                             { "price", skin.price },
                             { "timestamp", System.DateTime.UtcNow.ToString("o") },
-                            { "user_id", user?.UserId ?? "anonymous" }
+                            { "user_id", UserSession.CurrentUserId ?? "anonymous" }
                         });
                         UnityEngine.Debug.Log("[Analytics] DLC purchase event sent.");
                         UnityEngine.Debug.Log($"Purchased {skin.name} for {skin.price} credits.");
@@ -232,12 +207,12 @@ public class StoreManager : MonoBehaviour
             skin.localPath = savePath;
             skin.isPurchased = true;
 
-            UnityEngine.Debug.Log($"[DEBUG] Current Firebase User ID: {user?.UserId}");
+            UnityEngine.Debug.Log($"[DEBUG] Current Firebase User ID: {UserSession.CurrentUserId}");
 
             // Save ownership to Firestore
-            if (user != null)
+            if (!string.IsNullOrEmpty(UserSession.CurrentUserId))
             {
-                DocumentReference docRef = db.Collection("users").Document(user.UserId)
+                DocumentReference docRef = db.Collection("users").Document(UserSession.CurrentUserId)
                     .Collection("ownedSkins").Document(skin.name.Replace(" ", "_"));
 
 
@@ -252,7 +227,7 @@ public class StoreManager : MonoBehaviour
                 {
                     if (task.IsCompleted && !task.IsFaulted && !task.IsCanceled)
                     {
-                        UnityEngine.Debug.Log($"[FIRESTORE] Ownership of '{skin.name}' saved for user {user.UserId}");
+                        UnityEngine.Debug.Log($"[FIRESTORE] Ownership of '{skin.name}' saved for user {UserSession.CurrentUserId}");
                     }
                     else
                     {
@@ -284,26 +259,26 @@ public class StoreManager : MonoBehaviour
                 UnityEngine.Debug.Log($"[SUCCESS] Skin '{skin.name}' saved to: {savePath}");
 
                 //Debug Firebase User ID
-                UnityEngine.Debug.Log($"[DEBUG] Current Firebase User ID: {user?.UserId}");
+                UnityEngine.Debug.Log($"[DEBUG] Current Firebase User ID: {UserSession.CurrentUserId}");
 
                 // Save ownership to Firestore
-                if (user != null)
+                if (!string.IsNullOrEmpty(UserSession.CurrentUserId))
                 {
-                    DocumentReference docRef = db.Collection("users").Document(user.UserId)
+                    DocumentReference docRef = db.Collection("users").Document(UserSession.CurrentUserId)
                                                  .Collection("ownedSkins").Document(skin.name);
 
                     Dictionary<string, object> skinData = new Dictionary<string, object>
-                {
-                    { "name", skin.name },
-                    { "localPath", savePath },
-                    { "timestamp", Firebase.Firestore.FieldValue.ServerTimestamp }
-                };
+                    {
+                        { "name", skin.name },
+                        { "localPath", savePath },
+                        { "timestamp", Firebase.Firestore.FieldValue.ServerTimestamp }
+                    };
 
                     docRef.SetAsync(skinData).ContinueWithOnMainThread(task =>
                     {
                         if (task.IsCompleted && !task.IsFaulted && !task.IsCanceled)
                         {
-                            UnityEngine.Debug.Log($"[FIRESTORE] Ownership of '{skin.name}' saved for user {user.UserId}");
+                            UnityEngine.Debug.Log($"[FIRESTORE] Ownership of '{skin.name}' saved for user {UserSession.CurrentUserId}");
                         }
                         else
                         {
@@ -360,9 +335,10 @@ public class StoreManager : MonoBehaviour
 
     private void SaveCredits()
     {
-        if (user == null) return;
+        string userId = UserSession.CurrentUserId;
+        if (string.IsNullOrEmpty(userId)) return;
 
-        DocumentReference userRef = db.Collection("users").Document(user.UserId);
+        DocumentReference userRef = db.Collection("users").Document(userId);
         userRef.UpdateAsync(new Dictionary<string, object> {
         { "credits", currentCredits }
     });
@@ -371,13 +347,13 @@ public class StoreManager : MonoBehaviour
 
     private void LoadCredits(System.Action callback = null)
     {
-        if (user == null)
+        if (string.IsNullOrEmpty(UserSession.CurrentUserId))
         {
-            UnityEngine.Debug.LogWarning("[CREDITS] Cannot load credits — user is null.");
+            UnityEngine.Debug.LogWarning("[CREDITS] Cannot load credits â€” CurrentUserId is empty.");
             return;
         }
 
-        DocumentReference userRef = db.Collection("users").Document(user.UserId);
+        DocumentReference userRef = db.Collection("users").Document(UserSession.CurrentUserId);
 
         userRef.GetSnapshotAsync().ContinueWithOnMainThread(task =>
         {
@@ -394,14 +370,14 @@ public class StoreManager : MonoBehaviour
                 {
                     currentCredits = 500;
 
-                    //Save initial credits for new user
+                    // Save initial credits for new user
                     Dictionary<string, object> newUserData = new Dictionary<string, object>
                 {
                     { "credits", currentCredits }
                 };
 
                     userRef.SetAsync(newUserData, SetOptions.MergeAll);
-                    UnityEngine.Debug.Log("[CREDITS] No credits found — assigning 500 default.");
+                    UnityEngine.Debug.Log("[CREDITS] No credits found â€” assigning 500 default.");
                 }
 
                 UpdateCreditsUI();
@@ -416,6 +392,7 @@ public class StoreManager : MonoBehaviour
     }
 
 
+
     private void UpdateCreditsUI()
     {
         if (creditsText != null)
@@ -425,16 +402,16 @@ public class StoreManager : MonoBehaviour
 
     private void LoadOwnedSkins(System.Action callback)
     {
-        if (user == null)
+        if (string.IsNullOrEmpty(UserSession.CurrentUserId))
         {
-            UnityEngine.Debug.LogWarning("[FIRESTORE] Cannot load owned skins — user is null.");
+            UnityEngine.Debug.LogWarning("[FIRESTORE] Cannot load owned skins â€” CurrentUserId is empty.");
             callback?.Invoke();
             return;
         }
 
-        UnityEngine.Debug.Log($"[FIRESTORE] Loading owned skins for user: {user.UserId}");
+        UnityEngine.Debug.Log($"[FIRESTORE] Loading owned skins for user: {UserSession.CurrentUserId}");
 
-        db.Collection("users").Document(user.UserId)
+        db.Collection("users").Document(UserSession.CurrentUserId)
           .Collection("ownedSkins")
           .GetSnapshotAsync().ContinueWithOnMainThread(task =>
           {
@@ -451,7 +428,6 @@ public class StoreManager : MonoBehaviour
               {
                   string skinName = doc.Id;
                   UnityEngine.Debug.Log($"[FIRESTORE] Document found: {skinName}");
-
 
                   string localPath = null;
                   if (doc.TryGetValue<string>("localPath", out var path))
@@ -471,5 +447,6 @@ public class StoreManager : MonoBehaviour
               callback?.Invoke();
           });
     }
+
 
 }
