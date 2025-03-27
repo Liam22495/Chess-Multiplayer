@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
-using Firebase.Auth;
 using Firebase.Firestore;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Firebase.Extensions;
+using Unity.Netcode;
 using UnityChess;
 
 public class GameStateRestorer : MonoBehaviour
@@ -21,30 +22,42 @@ public class GameStateRestorer : MonoBehaviour
 
     private void LoadMostRecentGameFromFirebase()
     {
-        var user = FirebaseAuth.DefaultInstance?.CurrentUser;
-        if (user == null)
+        if (string.IsNullOrEmpty(UserSession.CurrentUserId))
         {
-            UnityEngine.Debug.LogWarning("[Firebase] Cannot load game — user is null.");
+            UnityEngine.Debug.LogWarning("[Firebase] Cannot load game — UserSession.CurrentUserId is empty.");
             return;
         }
 
-        var db = FirebaseFirestore.DefaultInstance;
-        var userId = user.UserId;
+        var db = Firebase.Firestore.FirebaseFirestore.DefaultInstance;
+        var userId = UserSession.CurrentUserId;
+
+        UnityEngine.Debug.Log($"[Firebase] Attempting to load last game for: {userId}");
 
         db.Collection("users").Document(userId).Collection("savedGames")
             .OrderByDescending("timestamp")
             .Limit(1)
             .GetSnapshotAsync()
-            .ContinueWith(task =>
+            .ContinueWithOnMainThread(task =>
             {
-                if (task.IsCompletedSuccessfully && task.Result.Count > 0)
+                if (task.IsCompletedSuccessfully)
                 {
+                    UnityEngine.Debug.Log("[Firebase] Query completed.");
+
+                    if (task.Result.Count == 0)
+                    {
+                        UnityEngine.Debug.LogWarning($"[Firebase] No saved games found for user: {userId}");
+                        return;
+                    }
+
                     var doc = task.Result.Documents.First();
+                    UnityEngine.Debug.Log("[Firebase] Saved game document found.");
+
                     string savedGame = doc.ContainsField("gameState") ? doc.GetValue<string>("gameState") : null;
 
                     if (!string.IsNullOrEmpty(savedGame))
                     {
-                        UnityEngine.Debug.Log("[Firebase] Restoring game...");
+                        UnityEngine.Debug.Log("[Firebase] Valid 'gameState' found, attempting to load...");
+
                         GameManager.Instance.LoadGame(savedGame);
                         BoardManager.Instance.ClearBoard();
 
@@ -55,10 +68,33 @@ public class GameStateRestorer : MonoBehaviour
 
                         BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(GameManager.Instance.SideToMove);
                         UIManager.Instance?.ValidateIndicators();
+
+                        if (NetworkManager.Singleton.IsHost)
+                        {
+                            string sideToMove = GameManager.Instance.SideToMove.ToString();
+                            GameStateSync.Instance.SendGameStateToClientClientRpc(savedGame, sideToMove);
+                            UnityEngine.Debug.Log("[Firebase] Synced restored game state to all clients.");
+
+                            //Reassign host and client player roles after restoring the game
+                            if (TurnManager.Instance != null)
+                            {
+                                var hostId = NetworkManager.Singleton.LocalClientId;
+                                var clientIds = NetworkManager.Singleton.ConnectedClientsIds;
+
+                                if (clientIds.Count >= 2)
+                                {
+                                    var otherClient = clientIds.FirstOrDefault(id => id != hostId);
+                                    TurnManager.Instance.AssignPlayers(hostId, otherClient);
+                                    UnityEngine.Debug.Log("[Restore] TurnManager reassigned host and client player sides.");
+                                }
+                            }
+                        }
+
+                        UnityEngine.Debug.Log("[Firebase] Game state restored successfully.");
                     }
                     else
                     {
-                        UnityEngine.Debug.LogWarning("[Firebase] No gameState found in document.");
+                        UnityEngine.Debug.LogWarning("[Firebase] 'gameState' field was missing or empty.");
                     }
                 }
                 else
@@ -67,4 +103,5 @@ public class GameStateRestorer : MonoBehaviour
                 }
             });
     }
+
 }
