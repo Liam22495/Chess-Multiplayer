@@ -150,59 +150,68 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 		rookGO.transform.localPosition = Vector3.zero;
 	}
 
-	/// <summary>
-	/// Instantiates and places the visual representation of a piece on the board.
-	/// </summary>
-	/// <param name="piece">The chess piece to display.</param>
-	/// <param name="position">The board square where the piece should be placed.</param>
-	public void CreateAndPlacePieceGO(Piece piece, Square position)
-	{
-		// Construct model name based on piece's owner and type
-		string modelName = $"{piece.Owner} {piece.GetType().Name}";
+    /// <summary>
+    /// Instantiates and places the visual representation of a piece on the board.
+    /// </summary>
+    /// <param name="piece">The chess piece to display.</param>
+    /// <param name="position">The board square where the piece should be placed.</param>
+    public void CreateAndPlacePieceGO(Piece piece, Square position)
+    {
+        // Construct model name based on piece's owner and type
+        string modelName = $"{piece.Owner} {piece.GetType().Name}";
 
-		GameObject pieceGO = Instantiate(
-			Resources.Load("PieceSets/Marble/" + modelName) as GameObject,
-			positionMap[position].transform
-		);
+        GameObject pieceGO = Instantiate(
+            Resources.Load("PieceSets/Marble/" + modelName) as GameObject,
+            positionMap[position].transform
+        );
 
-		//Apply skin if available
-		if (SkinSyncManager.Instance != null)
-		{
-			ulong ownerClientId = piece.Owner == UnityChess.Side.White ? 0ul : 1ul;
-			string skinName = SkinSyncManager.Instance.GetSkinForClient(ownerClientId);
+        // Ensure essential components exist
+        if (pieceGO.GetComponent<Collider>() == null)
+            pieceGO.AddComponent<BoxCollider>();
 
-			if (!string.IsNullOrEmpty(skinName))
-			{
-				string path = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, skinName.Replace(" ", "_") + ".jpg");
+        if (pieceGO.GetComponent<VisualPiece>() == null)
+            pieceGO.AddComponent<VisualPiece>();
 
-				if (System.IO.File.Exists(path))
-				{
-					byte[] bytes = System.IO.File.ReadAllBytes(path);
-					Texture2D texture = new Texture2D(2, 2);
-					texture.LoadImage(bytes);
+        // Apply skin if available
+        if (SkinSyncManager.Instance != null)
+        {
+            ulong ownerClientId = piece.Owner == UnityChess.Side.White ? 0ul : 1ul;
+            string skinName = SkinSyncManager.Instance.GetSkinForClient(ownerClientId);
 
-					// 🔁 Assign the loaded texture to material
-					Renderer renderer = pieceGO.GetComponentInChildren<Renderer>();
-					if (renderer != null)
-					{
-						Material newMat = new Material(renderer.sharedMaterial);
-						newMat.mainTexture = texture;
-						renderer.material = newMat;
+            if (!string.IsNullOrEmpty(skinName))
+            {
+                string path = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, skinName.Replace(" ", "_") + ".jpg");
 
-						UnityEngine.Debug.Log($"[SkinApply] Applied skin '{skinName}' to {piece.Owner} {piece.GetType().Name}");
-					}
-					else
-					{
-						UnityEngine.Debug.LogWarning("[SkinApply] No Mesh Renderer found on piece.");
-					}
-				}
-				else
-				{
-					UnityEngine.Debug.LogWarning("[SkinApply] Skin image not found at path: " + path);
-				}
-			}
-		}
-	}
+                if (System.IO.File.Exists(path))
+                {
+                    byte[] bytes = System.IO.File.ReadAllBytes(path);
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(bytes);
+
+                    Renderer renderer = pieceGO.GetComponentInChildren<Renderer>();
+                    if (renderer != null)
+                    {
+                        //Fix for DLC store use Standard shader (Since using standerd pipeline)
+                        Material newMat = new Material(Shader.Find("Standard"));
+                        newMat.mainTexture = texture;
+                        newMat.color = Color.white;
+
+                        renderer.material = newMat;
+
+                        UnityEngine.Debug.Log($"[SkinApply] Applied skin '{skinName}' to {piece.Owner} {piece.GetType().Name}");
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogWarning("[SkinApply] No Renderer found on piece. Cannot apply skin.");
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning("[SkinApply] Skin image not found at path: " + path);
+                }
+            }
+        }
+    }
 
 
     /// <summary>
