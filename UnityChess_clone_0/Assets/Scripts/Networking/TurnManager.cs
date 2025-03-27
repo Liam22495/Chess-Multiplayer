@@ -25,6 +25,12 @@ public class TurnManager : NetworkBehaviour
             Instance = this;
     }
 
+    public Side GetAssignedSide(ulong clientId)
+    {
+        return playerSides.TryGetValue(clientId, out Side side) ? side : Side.White; // fallback to White
+    }
+
+
     public void AssignPlayers(ulong hostId, ulong clientId)
     {
         whitePlayerId = hostId;
