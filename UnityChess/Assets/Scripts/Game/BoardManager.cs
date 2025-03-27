@@ -21,9 +21,6 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 	// The vertical offset for placing the board (height above the base).
 	private const float BoardHeight = 1.6f;
 
-
-
-
 	/// <summary>
 	/// Awake is called when the script instance is being loaded.
 	/// Sets up the board, subscribes to game events, and creates the square GameObjects.
