@@ -85,12 +85,16 @@ public class VisualPiece : MonoBehaviour {
 
     private bool IsOwnerTurn()
     {
-        bool isTurn = TurnManager.Instance != null &&
-                      TurnManager.Instance.IsClientTurn(NetworkManager.Singleton.LocalClientId);
+        if (TurnManager.Instance == null)
+            return false;
 
-        UnityEngine.Debug.Log($"[VisualPiece] IsOwnerTurn? {isTurn} | ClientId: {NetworkManager.Singleton.LocalClientId}");
+        ulong localClientId = NetworkManager.Singleton.LocalClientId;
+        Side currentSideToMove = GameManager.Instance.SideToMove;
 
-        return isTurn;
+        bool isMyTurn = TurnManager.Instance.IsClientAssignedToSide(localClientId, currentSideToMove);
+
+        UnityEngine.Debug.Log($"[VisualPiece] IsOwnerTurn? {isMyTurn} | ClientId: {localClientId} | SideToMove: {currentSideToMove}");
+        return isMyTurn;
     }
 
 

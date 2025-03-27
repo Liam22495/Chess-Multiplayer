@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityChess;
+using System.Collections.Generic;
 
 
 public class TurnManager : NetworkBehaviour
@@ -13,6 +14,8 @@ public class TurnManager : NetworkBehaviour
 
     private ulong currentTurnClientId;
     private Side currentTurnSide;
+    private readonly Dictionary<ulong, Side> playerSides = new();
+
     public string syncedSideToMove;
 
 
@@ -29,8 +32,41 @@ public class TurnManager : NetworkBehaviour
         currentTurnClientId = whitePlayerId;
         currentTurnSide = Side.White;
 
+        playerSides[whitePlayerId] = Side.White;
+        playerSides[blackPlayerId] = Side.Black;
+
         SendTurnInfoToClients();
+
+        NotifyAssignedSideClientRpc(whitePlayerId, Side.White.ToString(), new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = new[] { whitePlayerId } }
+        });
+
+        NotifyAssignedSideClientRpc(blackPlayerId, Side.Black.ToString(), new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = new[] { blackPlayerId } }
+        });
+
     }
+    public bool IsClientAssignedToSide(ulong clientId, Side side)
+    {
+        return playerSides.TryGetValue(clientId, out Side assignedSide) && assignedSide == side;
+    }
+
+
+    [ClientRpc]
+    private void NotifyAssignedSideClientRpc(ulong targetClientId, string sideStr, ClientRpcParams rpcParams = default)
+    {
+        ulong localClientId = NetworkManager.Singleton.LocalClientId;
+
+        if (localClientId == targetClientId)
+        {
+            Side parsed = sideStr == "White" ? Side.White : Side.Black;
+            playerSides[localClientId] = parsed;
+            UnityEngine.Debug.Log($"[TurnManager] Assigned local client ({localClientId}) to side {parsed}");
+        }
+    }
+
 
     public bool IsClientTurn(ulong clientId)
     {
